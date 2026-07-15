@@ -49,3 +49,11 @@
 - Subagent gate claim: PASS — Ruff format/lint, 30 tests, import smoke, vLLM persona e2e, and oMLX persona e2e.
 - Orchestrator verified gate: PASS — independently rerun with the same 30 tests and both persona e2e checks.
 - Next: harden the platform operations files and their surface tests.
+
+## Iteration 6 — platform operations hardening
+
+- Item: harden the DGX Spark Compose service and both platform launchers.
+- Work: added literal whitelisted `.env` parsing with exported values winning, exact model/context reuse checks, external-service ownership guards, repository-owned down/log behavior, Python 3.12 and pinned CUDA 13 torch wheels on Spark, live seam smoke, Apple Silicon Conda Python 3.11 validation, and default GUI launch. Compose remains digest/revision pinned, loopback-only, non-restarting, and bounded to two sequences.
+- Subagent gate claim: the delegated iteration tightened Compose scalar quoting but stalled before launcher completion.
+- Orchestrator verified gate: PASS — Bash syntax, Ruff format/lint, 31 tests, import smoke, vLLM persona e2e, and oMLX persona e2e.
+- Next: reconcile all documentation and environment/test matrices with the implemented application.

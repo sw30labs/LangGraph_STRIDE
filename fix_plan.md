@@ -6,7 +6,7 @@
 - [x] Port and test the scenario workflow and its assets.
 - [x] Implement the Typer CLI and dual-persona contract e2e.
 - [x] Port and test the local web GUI.
-- [ ] Add and test DGX Spark Compose and both platform launchers.
+- [x] Add and test DGX Spark Compose and both platform launchers.
 - [ ] Complete README, AGENTS, CLAUDE, DGX guide, environment example, license, and test-case matrix.
 - [ ] Harden the complete repository and obtain independent clean-clone verification.
 - [ ] Write `PORT_REPORT.md`, verify source digests, and leave a clean final tree.
