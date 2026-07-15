@@ -87,3 +87,13 @@
 - Independent clean-clone verdict: FAIL with four findings — QA transport errors escaped the source-style retry/fallback path, the client cache lacked focused tests, runtime data/prompts were missing from built wheels, and DGX doctor did not execute or report every prerequisite claimed by the docs.
 - Fixes: made STRIDE/DREAD QA errors enter the bounded retry loop and final-QA errors retain the assembled report; added cache identity/persona regression coverage; relocated public assets into package data with workspace-local output defaults; and made DGX doctor validate Python 3.12, query the GB10 GPU, and report host, Python, Docker, and Compose versions.
 - Next: run the complete gate, verify a built wheel, and repeat independent clean-clone verification.
+
+## Iteration 11 — clean-clone verifier pass
+
+- Independent verdict: PASS at `49e724b` from a fresh clone and Python 3.11.15 environment.
+- Packaging: a built wheel installed outside the checkout with all four data assets and three prompt assets; generated output resolved below the non-checkout working directory.
+- Gate: PASS — Ruff format/lint, 43 tests, import smoke, vLLM persona e2e, and oMLX persona e2e.
+- Manual quickstarts: `info`, `models`, and `smoke-inference` passed separately against both vLLM and oMLX mock servers with no thinking-tag leakage.
+- Source verification: HEAD `ab67d6c7ca46149b370062ec94137b5bd18b9a10`, status digest `ff5478dbd4bc365543e922d10635f2ed56215429b17bec5583d74ad3b94bda0a`, 58-file digest `726b2fa48e8f6a63f7e779653bdc6d6b87af0db1d67712f9e65dc1e02f54b061`, and zero source tests all matched the baseline.
+- Cleanliness: the verifier's clone and the original target both had zero status entries.
+- Next: write the final port report, rerun the gate, and leave the committed tree clean.
