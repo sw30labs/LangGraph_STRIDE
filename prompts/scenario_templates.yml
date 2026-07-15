@@ -1,0 +1,906 @@
+risk_report:
+  title: "Cybersecurity Risk Assessment Report for ACME Bank Workspace VDI"
+  content: |
+    # Cybersecurity Risk Assessment Report for ACME Bank Workspace VDI
+    ## Comprehensive Amended Document
+
+    ### Background
+    The following document provides a refined risk assessment and control strategy for the ACME Bank Workspace VDI based on existing content and recommendations. It aims to:
+    - Clarify definitions
+    - Enhance threat scenarios
+    - Align with best practices
+    - Aid in the closure of MRA2
+
+    ## VDI Exposure Categories
+    | Exposure Category      | Exposure Sub-Category         | Definition                                                              | Treatment                                           |
+    |------------------------|-------------------------------|-------------------------------------------------------------------------|-----------------------------------------------------|
+    | External               | Public Access                 | VDI accessible to any user/client with internet access                  | Implement strict rate limiting/monitoring           |
+    | External               | Partner-Specific Access       | VDI accessible to specific external partners (IP whitelisted)           | Regular review of partner access/logs               |
+    | External               | Third-Party External Access   | VDI accessible to authenticated third parties with technical restrictions | Compliance with third-party security standards      |
+    | Internal               | Inter-Application Access      | VDI accessible within ACME Bank network for inter-app communication           | Validate security controls regularly                |
+    | Internal               | Intra-Application Access      | VDI exposed only to components within the same application              | Apply strict access controls/validation             |
+
+    ### VDI Definition
+    A VDI (Virtual Desktop Infrastructure) is defined as a virtualized desktop environment hosted on a remote server, accessible via a network connection, and capable of providing a full desktop experience to the end-user.
+
+    ## Threat Scenarios
+    ### Internal VDI
+    1. **Insider Threat**:
+       - Malicious employee exploits weak authentication/access controls
+       - Exploitation of weak authorization/excessive permissions
+    2. **External Attacker**:
+       - Gains access to ACME Bank server/workstation to exploit weakly secured VDIs
+    3. **Data Risks**:
+       - Accidental exposure due to misconfigurations
+       - Automated VDI abuse leading to service degradation
+       - Vulnerabilities from poor VDI design practices
+
+    ### Third-Party External VDI
+    1. **Access Risks**:
+       - Unauthorized access through compromised credentials
+       - Bypass of network security controls
+    2. **Data Exfiltration**:
+       - Abuse of legitimate VDI access for data extraction
+       - Inadequate monitoring of VDI traffic patterns
+
+    ### Vulnerable Software
+    The VDI environment may include software that is susceptible to various vulnerabilities. For instance:
+    - **NetScaler ADC and NetScaler Gateway**: A vulnerability in these components can allow bad actors to gain access to the NetScaler administration console. Although a patch is available, the patching process can be slow, leaving the organization at risk [1](https://teams.microsoft.com/l/message/19:deab0796-a48a-44da-927f-3b425b1cec83_fccc146e-f145-48a7-a1fa-c6a6f4596de6@unq.gbl.spaces/1698669621754?context=%7B%22contextType%22:%22chat%22%7D).
+    - **Microsoft Office Core Applications**: Penetration tests have identified several vulnerabilities, including susceptibility to malicious attachments, unrestricted addition of trusted locations, and lack of enforcement for strict DKIM alignment [2](https://teams.microsoft.com/l/message/19:2d02a4f6-69c1-4acc-84fb-7951961bdb7e_deab0796-a48a-44da-927f-3b425b1cec83@unq.gbl.spaces/1746640422470?context=%7B%22contextType%22:%22chat%22%7D).
+
+    ## Security Controls
+    | Category       | Control Measure                                  | Reference | Next Steps                  |
+    |----------------|--------------------------------------------------|-----------|-----------------------------|
+    | Network        | VDI gateway with rate limiting/monitoring        | GC3       | Review/enhance logging      |
+    | Network        | Firewall controls for internal VDI access        | GC2       | Regular network audits      |
+    | Data Loss      | Boundary DLP controls to prevent exfiltration    | LM12      | Implement data access auditing |
+    | Identity       | Regular review of user permissions/access logs   | PM47      | Enhance user training       |
+    | Insider Threat | UEBA detection for malicious activity            | JM17      | Update UEBA detection rules |
+
+    ## List of Applications Available Through VDI
+    The following applications are available through the ACME Bank Workspace VDI:
+    1. **Secure CRT**: Used for secure remote terminal access [3](https://ACME Bankcloudche.sharepoint.com/teams/SwissNetworkOperations/Shared%20Documents/CORE/HOW-TO/Jumphost-VDI%201.docx?web=1).
+    2. **Microsoft Office Suite**: Includes Word, Excel, PowerPoint, and Outlook [1](https://teams.microsoft.com/l/message/19:deab0796-a48a-44da-927f-3b425b1cec83_fccc146e-f145-48a7-a1fa-c6a6f4596de6@unq.gbl.spaces/1698669621754?context=%7B%22contextType%22:%22chat%22%7D).
+    3. **NetScaler ADC and NetScaler Gateway**: For secure application delivery and remote access [1](https://teams.microsoft.com/l/message/19:deab0796-a48a-44da-927f-3b425b1cec83_fccc146e-f145-48a7-a1fa-c6
+
+    - Automated VDI abuse leading to service degradation
+    - Vulnerabilities from poor VDI design practices
+
+    ## Security Controls
+    | Category       | Control Measure                                  | Reference | Next Steps                   |
+    |----------------|--------------------------------------------------|-----------|------------------------------|
+    | Network        | VDI gateway with rate limiting/monitoring        | GC3       | Review/enhance logging       |
+    | Network        | Firewall controls for internal VDI access        | GC2       | Regular network audits       |
+    | Data Loss      | Boundary DLP controls to prevent exfiltration    | LM12      | Implement data access auditing |
+    | Identity       | Regular review of user permissions/access logs   | PM47      | Enhance user training        |
+    | Insider Threat | UEBA detection for malicious activity            | JM17      | Update UEBA detection rules  |
+
+    ## List of Applications Available Through VDI
+    The following applications are available  through the ACME Bank Workspace VDI:
+    1. **Secure CRT**: Used for secure remote terminal access [3](https://ACME Bankcloudche.sharepoint.com/teams/SwissNetworkOperations/Shared%20Documents/CORE/HOW-TO/jumphost-VDI%201.docx?web=1).
+    2. **Microsoft Office Suite**: Includes Word, Excel, PowerPoint, and Outlook [1](https://teams.microsoft.com/l/message/19:deab0796-a48a-44da-927f-3b425b1cec83_fccc146e-f145-48a7-a1fa-c6a6f4596de6@unq.gbl.spaces/1698669621754?context=%7B%22contextType%22:%22chat%22%7D).
+    3. **NetScaler ADC and NetScaler Gateway**: For secure application delivery and remote access [1](https://teams.microsoft.com/l/message/19:deab0796-a48a-44da-927f-3b425b1cec83_fccc146e-f145-48a7-a1fa-c6a6f4596de6@unq.gbl.spaces/1698669621754?context=%7B%22contextType%22:%22chat%22%7D).
+    4.
+
+    | Data Loss         | Boundary DLP controls to prevent exfiltration
+    | Identity          | Regular review of user permissions/access logs
+    | Insider Threat    | UEBA detection for malicious activity
+    | LM12 | Implement data access auditing
+    | PM47 | Enhance user training
+    | JM17 | Update UEBA detection rules
+
+    ## List of Applications Available Through VDI
+
+    The following applications are available through the ACME Bank Workspace VDI:
+
+    1. **Secure CRT**: Used for secure remote terminal access [3](https://ACME Bankcloudche.sharepoint.com/teams/SwissNetworkOperations/Shared%20Documents/CORE/HOW-TO/Jumphost-VDI%201.docx?web=1).
+    2. **Microsoft Office Suite**: Includes Word, Excel, PowerPoint, and Outlook [1](https://teams.microsoft.com/l/message/19:deab0796-a48a-44da-927f-3b425b1cec83_fccc146e-f145-48a7-a1fa-c6a6f4596de6@unq.gb1.spaces/1698669621754?context=%7B%22contextType%22:%22chat%22%7D).
+    3. **NetScaler ADC and NetScaler Gateway**: For secure application delivery and remote access [1](https://teams.microsoft.com/l/message/19:deab0796-a48a-44da-927f-3b425b1cec83_fccc146e-f145-48a7-a1fa-c6a6f4596de6@unq.gb1.spaces/1698669621754?context=%7B%22contextType%22:%22chat%22%7D).
+    4. **Runtime Application Security Testing Tools**: for identifying security vulnerabilities in applications during execution [4](https://teams.microsoft.com/l/message/19:3003976d-eb90-4a85-aab4-112adc345ee9_deab0796-a48a-44da-927f-3b425b1cec83@unq.gb1.spaces/1737120626776?context=%7B%22contextType%22:%22chat%22%7D).
+    5. **Runtime Vulnerability Scanning Tools**: For dynamic testing, scanning, and vulnerability identification on running applications [4](https://teams.microsoft.com/l/message/19:3003976d-eb90-4a85-aab4-112adc345ee9_deab0796-a48a-44da-927f-3b425b1cec83@unq.gb1.spaces/1737120626776?context=%7B%22contextType%22:%22chat%22%7D).
+    6. **Runtime Vulnerability Monitoring Tools**: For continuous observation and analysis of application behavior to detect anomalies and potential vulnerabilities [4](https://teams.microsoft.com/l/message/19
+
+    4. **Runtime Application Security Testing Tools**: for identifying security vulnerabilities and remote access in applications during execution [4](https://teams.microsoft.com/l/message/19:dcacb0750-b40d-44da-927f-3b425b1cec83%40thread.tacv2/1712671026776?context=%7B%22contextType%22:%22chat%22%7D).
+    5. **Runtime Vulnerability Scanning Tools**: For dynamic testing, scanning, and vulnerability identification on running applications [4](https://teams.microsoft.com/l/message/19:3003976d-eb90-4a85-aab4-112adc345ee9_deab0796-a48a-44da-927f-3b425b1cec83@unq.gbl.spaces/1737120626776?context=%7B%22contextType%22:%22chat%22%7D).
+    6. **Runtime Vulnerability Monitoring Tools**: for continuous observation and analysis of application behavior to detect anomalies and potential vulnerabilities [4](https://teams.microsoft.com/l/message/19:3003976d-eb90-4a85-aab4-112adc345ee9_deab0796-a48a-44da-927f-3b425b1cec83@unq.gbl.spaces/1737120626776?context=%7B%22contextType%22:%22chat%22%7D).
+
+    ## Action Plan
+
+    | Task # | Task Description                                | Owner       | Status      | Comments                               |
+    | 1      | Raise RFI to CISO CIC for threat scenarios      | Nic Cravino | Complete    | Ticket RITM0113428085 raised           |
+    | 2      | Define mitigating controls addressing OWASP Top 10| WG          | Pending     | Include VDI security best practices    |
+    | 3      | Validate compensating control effectiveness     | TISO IT Risk| In Progress | Network security review underway       |
+    | 4      | Conduct VDI-specific MERS assessment            | CTO         | Not Started | Requires risk team alignment           |
+
+    ## Key Considerations
+    1. Address both external/internal threat actors
+    2. Revisit MRA1 for control scoping:
+      - Application security
+      - Penetration testing
+      - Scan ALL Tier 1 applications
+    3. Clarify VDI categorization:
+      - Inter- vs Intra-Application differentiation
+      - Third-party external VDI definitions
+    4. Ensure coverage of OWASP VDI Security Top 10
+    5. Cloud VDI security implications
+
+    ## Next Steps
+    - Finalize threat assessment by March 11
+    - Conduct control validation workshop
+    - Submit final report for regulatory review
+
+    *Document validated with ELS Security Team - 2025-03-01*
+
+scenario_list:
+  title: "ACME Bank Integration Scenario List"
+  content: |
+    1. External Hackers: With the increased use of generative AI by bad actors and the overall complexity of the cyber threat landscape, the risk of external hacker attacks is likely to be high.
+    2. Insider Threat (Disgruntled Employee or Contractor): The ongoing RIFs (Reduction in Force) could lead to disgruntled employees or contractors posing an insider threat.
+    3. Data Breach: With the integration of two major financial institutions, the risk of data breaches due to security vulnerabilities or human errors is heightened.
+    4. Cyber Attack: Similar to external hackers, the risk of cyber attacks is elevated due to the complex cyber threat landscape.
+    5. System Failure: The integration process could increase the risk of critical system failures, leading to loss of sensitive information or operations disruption.
+    6. Intellectual Property Theft: The integration of two financial institutions increases the risk of intellectual property theft or misuse.
+    7. Reputation Damage: Negative publicity or events related to the integration process could damage ACME Bank Bank's reputation.
+    8. Loss of Business: Security incidents during the integration process could result in loss of business opportunities and customer trust.
+    9. Disgruntled Employee Cyber Attack: Disgruntled employees impacted by the RIFs could potentially launch cyber attacks, causing significant disruptions.
+    10. Regulatory Compliance: With increased regulatory scrutiny due to the integration, the risk of non-compliance with industry regulations is higher.
+    11. Regulatory Fines: Non-compliance during the integration process could lead to regulatory fines and penalties.
+    12. Compliance Issues: Similar to regulatory compliance, non-adherence to regulatory requirements during the integration could lead to reputation damage.
+    13. Technical Glitches or Software Bugs: The integration process could introduce technical glitches or software bugs, causing disruptions to operations.
+    14. Financial Loss: Security breaches during the integration could lead to financial losses, including notification, remediation, and legal fees.
+    15. Insider Threat from RadioShack Bank Employees: Disgruntled employees from RadioShack Bank could potentially pose an insider threat during the integration process.
+    16. Internal Sabotage During Integration: Disgruntled employees from either institution could attempt to disrupt operations during the integration process.
+    17. Reputation Damage During Integration: Negative media coverage or employee misconduct during the integration process could damage ACME Bank Bank's reputation.
+    18. Competitor Retaliation: Competitors might attempt to launch attacks or spread misinformation to disrupt the integration process or gain an advantage.
+    19. Supply Chain Attack: Attacks on ACME Bank Bank's supply chain during the integration process could lead to theft or disruption of sensitive information.
+    20. Regulatory Challenges: New regulations introduced during the integration process could hinder effective operations.
+    21. Geopolitical Instability: Political instability in operational regions (e.g., Ukraine, Israel, Gaza) could impact ACME Bank Bank's assets and operations.
+    22. Competitor Attack: Competitors might attempt to disrupt ACME Bank Bank's operations or steal sensitive information, but this is a more general threat not directly related to the integration.
+    23. Natural Disaster: While natural disasters like floods, fires, or earthquakes could occur, they are generally less likely than other threats specific to the integration process.
+    24. Swiss Rival Bank Smear Campaign: While a smear campaign from a Swiss rival bank could damage ACME Bank Bank's reputation, it is a more specific and less likely scenario.
+    25. Physical Attacks: Physical attacks on facilities or employees are generally less likely than cyber threats in the current context.
+    26. NSA Security Breach: While a security breach by the NSA could occur, it is a less likely scenario compared to other cyber threats and integration-related risks.
+    27. Russian Spetsnaz Infiltration: A physical infiltration by Russian special forces is an unlikely scenario compared to other cyber threats.
+    28. Third-Party Risk: Vulnerabilities or breaches in the supply chain or third-party systems could pose a significant risk during the integration.
+    29. Cloud Security Risk: With the increasing adoption of cloud services, there potential risks associated with cloud security and the integration of cloud infrastructure during the merger.
+    30. Transition and Migration Risks: Risks associated with the transition and migration of data, systems, and infrastructure between the two institutions during the integration process.
+    31. Cultural Integration Risks: Risks arising from cultural differences, resistance to change, or challenges in integrating the organizational cultures of the two institutions.
+    32. Post-Integration Risks: Risks that may arise after the integration is completed, such as the risks associated with the combined entity's operations, customer retention, and market position.
+    33. Third-Party Vendor Risks: The integration process may involve various third-party vendors, consultants, or service providers, which could introduce additional security risks or vulnerabilities if not properly addressed.
+    34. Merger Integration Team Risks: The team responsible for managing and executing the integration process itself could be a potential risk if there are internal conflicts, miscommunications, or ineffective project management.
+    35. Legacy System Risks: The merging of legacy systems, applications, and infrastructure from both institutions could present compatibility issues, data migration challenges, or security vulnerabilities.
+    36. Operational Disruption Risks: Beyond system failures, the integration process could cause significant operational disruptions, impacting critical business processes, customer service, and overall productivity.
+    37. Talent Retention and Acquisition Risks: The integration process could lead to the loss of key talent or difficulties in attracting and retaining skilled personnel, which could impact the combined entity's long-term success.
+    38. Regulatory Approval Risks: Depending on the jurisdictions involved, there may be risks associated with obtaining necessary regulatory approvals or clearances for the merger, which could delay or complicate the integration process.
+    39. Post-Merger Integration Risks: Even after the initial integration is completed, there may be ongoing risks related to fully realizing the expected synergies, cost savings, and operational efficiencies of the merged entity.
+    40. Cyber Insurance and Legal Liability Risks: Inadequate cyber insurance coverage or potential legal liabilities arising from security incidents or data breaches during the integration process.
+    41. Employee Overload and Burnout: With the integration workload and possible staffing reductions, remaining employees might face increased workloads leading to burnout, which can reduce productivity and increase errors.
+    42. Technology Integration Challenges: Specific risks associated with integrating different technology platforms and IT systems that weren't explicitly addressed might include compatibility issues, data integrity problems, and increased IT support incidents.
+    43. Communication Breakdowns: Effective communication is crucial during a merger. Lack of clear communication can lead to misinformation, employee dissatisfaction, and a disorganized integration process.
+    44. Stakeholder Engagement Risks: Failure to adequately engage key stakeholders (like shareholders, regulators, regulatory bodies, and major clients) during the integration process can lead to resistance, dissatisfaction, and potential withdrawal of support.
+    45. Project Management and Execution Risks: Inadequate project management during the integration, including poor planning, resource allocation, and timeline management, can lead to delays and cost overruns.
+    46. Change Management Risks: Ineffective management of the change process can lead to resistance from employees and other stakeholders, potentially disrupting the integration process.
+    47. Customer Retention Risks: During mergers, there's a risk of losing customers due to changes in service levels, brand loyalty, or competitive responses.
+    48. Dependencies on specific technology vendors whose stability or integrity might be compromised
+    48. Dependencies on specific technology vendors whose stability or integrity might be compromised, impacting the financial institutions.
+    49. SACME Banktandard ICT products which might not meet security standards required for the integration, leading to vulnerabilities.
+    50. Integration issues due to differing technology standards or practices from different vendors which could cause delays or failures in systems integration.
+    51. Employee Training and Awareness Risks: The effectiveness of training programs to update employees on new systems, processes, or security measures can be a significant risk. Inadequate training can lead to errors and vulnerabilities.
+    52. Escalation of Existing Vulnerabilities: Often, mergers can escalate pre-existing vulnerabilities as systems integrate and expand. This might include unpatched software, outdated hardware, or unresolved network vulnerabilities.
+    53. Crisis Management and Response: The adequacy of the merged entity's crisis management and response plans, particularly in the context of increased scale and complexity, could be crucial. Insufficient crisis management capabilities might exacerbate the impact of any risk event.
+    54. Misalignment of Objectives Between Merging Entities: Differences in strategic goals and business objectives between the two institutions could lead to conflicts and inefficiencies that impact the overall integration process.
+    55. Impact on Customer Experience: Changes during the integration process can affect customer experience negatively, leading to dissatisfaction and churn, which hasn't been explicitly covered in the "Customer Retention Risks."
+    56. Legal Risks from Unforeseen Liabilities: These could arise from non-compliance with laws and regulations that were not previously applicable to one or both entities before the merger.
+    57. Enhanced Scrutiny from Media and Public: Increased public and media scrutiny, not just due to negative events but as a general consequence of the merger's high profile, can pressure the organizations and impact their operations.
+    58. Impact of Cultural Differences on Business Practices: Beyond the internal cultural integration, differing business practices and regulatory environments across geographies (especially in international mergers) can pose risks.
+    59. Cross-Jurisdictional Legal and Compliance Risks: While regulatory compliance risks are mentioned, the specific challenges of aligning legal and compliance frameworks across different jurisdictions (especially in international mergers) could be further detailed. This includes the risk of conflicting regulations or the complexity of implementing changes in multiple legal environments.
+    60. Environmental Risks: Environmental risks, including those related to sustainability practices and regulations, are not explicitly mentioned. These could become increasingly relevant, especially given global trends towards more stringent environmental regulations and reporting requirements.
+    61. Technology Obsolescence Risks: As technology evolves rapidly, there is a risk that the merged entity might continue using obsolete technology, which could impair efficiency or competitiveness.
+    62. Risk of Loss of Intellectual Capital: Beyond the retention of talent, the specific risk associated with the loss of key intellectual capital-expertise and knowledge that are critical to the institutions' operations and competitive advantage-hasn't been fully addressed.
+    63. Integration of Risk Management Systems: The challenges and risks associated with integrating the risk management frameworks and systems of the two entities have not been explicitly mentioned. Discrepancies in risk assessment and mitigation strategies can lead to gaps in risk coverage.
+    64. Disruption to Ongoing Projects: The impact of the merger on ongoing projects and initiatives, which might be sidelined, delayed, or disrupted as resources and focus shift towards the integration.
+
+threat_scenario:
+  title: "Comprehensive Cyber Threat Scenario Report for ACME Bank Bank"
+  content: |
+    **Title Threat Scenario:** Zero-Day_Exploit_New_
+    **Threat Report Date:** 09 May 2025, 16:50:12
+    **Attack Template:** Zero-Day Exploit [New]
+
+    **ACME Bank Application Details:**
+    - **SWC-ID**: AA45537
+    - **Application**: ZOOM CLIENT
+    - **Description**: Client connectivity that provides video telephony and online chat services through a cloud-based peer-to-peer software platform and is used for teleconferencing, telecommuting, distance education, and social relations.
+    - **Development Category**: Off-the-shelf-product (3rd party, commercial software)
+    - **Externally Facing**: Yes - Internet
+    - **Confidentiality Rating**: Confidential (Tier 3)
+    - **Integrity Rating**: Trusted (Tier 3)
+    - **Availability Rating**: No BCM needed
+    - **CID Handling**: Structured CID (if the SWC has at least CAT A/B/C data in a structured format)
+    - **ACME Bank Platforms Supporting the Application**: Windows Global Server Platform
+
+    **MITRE ATT&CK Techniques and Subtechniques Selected:**
+    - Exploitation for Client Execution (T1203)
+    - Exploit Public-Facing Application (T1190)
+    - Command and Scripting Interpreter (T1059)
+    - System Information Discovery (T1082)
+    - File and Directory Discovery (T1083)
+    - Exfiltration Over Unencrypted/Obfuscated Non-C2 Protocol (T1048.002)
+    - Obfuscated Files or Information (T1027)
+    - Indicator Removal on Host (T1070)
+    - Subvert Security Software (T1562)
+    - Exploitation for Privilege Escalation (T1068)
+    - Remote Services: SMB/Windows Admin Shares (T1021.002)
+    - Scheduled Task/Job (T1053)
+
+    ### A. Executive Summary
+    This threat scenario outlines potential cyber threats to ACME Bank's ZOOM CLIENT application, leveraging identified critical vulnerabilities such as CVE-2024-49112 and CVE-2024-47606. These vulnerabilities pose a significant risk to the Windows Global Server Platform, potentially leading to unauthorized access, data breaches, and service disruptions.
+
+    ### B. Threat Actor Profile
+    Threat Actor Profile Summary
+    The identified threat actor is an advanced adversary operating at the intersection of state-sponsored cyber intelligence and financially motivated cybercrime. Their dual-pronged motivation centers on exploiting high-value communication platforms-like the widely used
+
+    - `**SWC-ID**: AA43537`
+    - `**Application**: ZOOM CLIENT`
+    - `**Description**: Client connectivity that provides video telephony and online chat services through a cloud-based peer-to-peer software platform and is used for teleconferencing, telecommuting, distance education, and social relations.`
+    - `**Development Category**: Off-the-shelf-product (3rd party, commercial software)`
+    - `**Externally Facing**: Yes - Internet`
+    - `**Confidentiality Rating**: Confidential (Tier 3)`
+    - `**Integrity Rating**: Trusted (Tier 3)`
+    - `**Availability Rating**: No BCM needed`
+    - `**CID Handling**: Structured CID (if the SWC has at least CAT A/B/C data in a structured format)`
+    - `**ACME Bank Platforms Supporting the Application**: Windows Global Server Platform`
+
+    `**MITRE ATT&CK Techniques and Subtechniques Selected:**`
+    - `Exploitation for Client Execution (T1203)`
+    - `Exploit Public-Facing Application (T1190)`
+    - `Command and Scripting Interpreter (T1059)`
+    - `System Information Discovery (T1082)`
+    - `File and Directory Discovery (T1083)`
+    - `Exfiltration Over Unencrypted/Obfuscated Non-C2 Protocol (T1048.002)`
+    - `Obfuscated Files or Information (T1027)`
+    - `Indicator Removal on Host (T1070)`
+    - `Subvert Security Software (T1562)`
+    - `Exploitation for Privilege Escalation (T1068)`
+    - `Remote Services: SMB/Windows Admin Shares (T1021.002)`
+    - `Scheduled Task/Job (T1053)`
+
+    `### B. Threat Actor Profile`
+    `Threat Actor Profile Summary`
+    `The identified threat actor is an advanced adversary operating at the intersection of state-sponsored cyber intelligence and financially motivated cybercrime. Their dual-pronged motivation centers on exploiting high-value communication platforms-like the widely used Zoom client-to either gather sensitive intelligence or facilitate financial crimes such as credential harvesting, ransomware, or extortion. By targeting a critical and ubiquitous tool, they not only aim to infiltrate organizational networks but also to disrupt essential communication channels, potentially causing broad operational and reputational damage.`
+    `Key Capabilities:`
+    - `Exploitation Proficiency: The actor leverages both zero-day vulnerabilities (e.g., CVE-2024-49112 in Windows LDAP and CVE-2024-47606 in GStreamer) and known high-severity vulnerabilities, demonstrating deep expertise in vulnerability research and rapid weaponization.`
+    - `Automation & AI Usage: Their use of automated exploitation frameworks and AI-driven tools enables rapid, large-scale reconnaissance, payload delivery, and dynamic adjustment of attack vectors to evade detection.`
+    - `Advanced Infrastructure: They maintain a robust command and control (C2) infrastructure that supports multi-phased attacks-from initial access and lateral movement to data exfiltration-enabling persistent and stealthy breaches.`
+    - `Stealth and Persistence Tactics: Techniques such as session hijacking, credential spoofing, log file manipulation, and virtual machine escapes allow them to remain undetected while sustaining long-term access.`
+    `Notable Tactics, Techniques, and Procedures (TTPs):`
+    - `Reconnaissance: Extensive scanning and system/file discovery (MITRE T1082, T1083) to map out public-facing endpoints and internal network environments.`
+    - `Weaponization & Delivery: Crafting and automated delivery of malicious payloads using techniques outlined in the MITRE framework (e.g., T1203 for client execution exploitation and T1190 for targeting public-facing applications).`
+    - `Execution & Privilege Escalation: Rapid deployment of code via command interpreters (T1059) and leveraging vulnerabilities for privilege escalation (T1068 and VM escape techniques) to compromise higher-level functions.`
+    - `Persistence & Evasion: Establishing long-term access using scheduled tasks (T1053) and obfuscation methods (T1070, T1562) to remove forensic traces and bypass security mechanisms.`
+    - `Lateral Movement & Exfiltration: Exploiting remote services (T1021.002) and covert channels (T1048.002) to move across networks and exfiltrate sensitive data without detection.`
+    `In essence, this threat actor represents a formidable challenge to secure communications platforms and critical infrastructures, particularly within high-stakes environments like financial institutions. Their sophisticated blend of state-level motives and cybercriminal pragmatism underscores the necessity for robust patch management, advanced threat detection, and stringent identity access controls to mitigate the evolving landscape of cyber threats.`
+
+    `### C. Attack Vectors`
+    `1. **CVE-2024-49112**: Exploitation of Windows LDAP service for remote code execution.`
+    `2. **CVE-2024-47606**: Integer underflow in GStreamer allowing arbitrary code execution.`
+    `3. **Phishing and Social Engineering**: Targeting ACME Bank employees through spearphishing campaigns.`
+
+    `### D. Kill Chain Analysis`
+    `| Stage | Tactic | Technique |`
+    `|---|---|---|`
+    `| Reconnaissance | Discovery | T1082, T1083 |`
+    `| Weaponization | Resource Development | T1203, T1190 |`
+    `| Delivery | Initial Access | T1059 |`
+    `| Exploitation | Execution | T1190 |`
+    `| Installation | Persistence | T1053 |`
+    `| C2 | Command & Control | T1048.002 |`
+    `| Actions | Impact | T1070, T1562 |`
+
+    `### E. Kill Chain Detailed Description`
+    `#### E1. Reconnaissance & Target Profiling`
+    `The attackers begin by gathering open source intelligence and scanning for externally facing services. They identify the target-a cloud-based, peer-to-peer Zoom Client that supports video telephony and online chat-and note its operational details (SWC_NAME: ZOOM CLIENT, running on the Windows Global Server Platform). Through passive network reconnaissance, they recognize that the product is an off-the-shelf commercial solution, and learn that it's classified as Confidential (Tier 3) with trusted integrity. These details, along with associated threat intelligence (CTI and STRIDE reports), enable the attackers to map the attack surface, including:`
+    - `Identifying publicly accessible endpoints and potential weak spots (e.g., insecure interfaces or misconfigured VDI sessions).`
+    - `Gathering information on past configuration weaknesses (such as VDI configuration tampering) and known vulnerabilities (e.g., CVE-2024-49112 in Windows LDAP and CVE-2024-47606 in GStreamer).`
+
+    `#### E2. Weaponization & Payload Preparation`
+    `Armed with the target profile, the adversaries craft a multi-faceted attack payload, combining exploits that address several weaknesses identified in the threat model:`
+    - `They bundle a remote code execution exploit targeting the Windows LDAP service (CVE-2024-49112) with a second exploit leveraging a GStreamer integer underflow (CVE-2024-47606), intending to bypass security checks and execute arbitrary code within the Zoom client environment
+
+    ### B. Threat Actor Profile Summary
+    The identified threat actor is an advanced adversary operating at the intersection of state-sponsored cyber intelligence and financially motivated cybercrime. Their dual-pronged motivation centers on exploiting high-value communication platforms-like the widely used Zoom client-to either gather sensitive intelligence or facilitate financial crimes such as credential harvesting, ransomware, or extortion. By targeting a critical and ubiquitous operating tool, they not only aim to infiltrate organizational networks but also to disrupt essential communication channels, potentially causing broad operational and reputational damage.
+    Key Capabilities:
+    - Exploitation Proficiency: The actor leverages both zero-day vulnerabilities (e.g., CVE-2024-49112 in Windows LDAP and CVE-2024-47606 in GStreamer) and known high-severity vulnerabilities, demonstrating deep expertise in vulnerability research and rapid weaponization.
+    - Automation & AI Usage: Their use of automated exploitation frameworks and AI-driven tools enables rapid, large-scale reconnaissance, payload delivery, and dynamic adjustment of attack vectors to evade detection.
+    - Advanced Infrastructure: They maintain a robust command and control (C2) infrastructure that supports multi-phased attacks-from initial access and lateral movement to data exfiltration-enabling persistent and stealthy breaches.
+    - Stealth and Persistence Tactics: Techniques such as session hijacking, credential spoofing, log file manipulation, and virtual machine escapes allow them to remain undetected while sustaining long-term access.
+
+    Notable Tactics, Techniques, and Procedures (TTPs):
+    - Reconnaissance: Extensive scanning and system/file discovery (MITRE T1082, T1083) to map out public-facing endpoints and internal network environments.
+    - Weaponization & Delivery: Crafting and automated delivery of malicious payloads using techniques outlined in the MITRE framework (e.g., T1203 for client execution exploitation and T1190 for targeting public-facing applications).
+    - Execution & Privilege Escalation: Rapid deployment of code via command interpreters (T1059) and leveraging vulnerabilities for privilege escalation (T1068 and VM escape techniques) to compromise higher-level functions.
+    - Persistence & Evasion: Establishing long-term access using scheduled tasks (T1053) and obfuscation methods (T1070, T1562) to remove forensic traces and bypass security mechanisms.
+    - Lateral Movement & Exfiltration: Exploiting remote services (T1021.002) and covert channels (T1048.002) to move across networks and exfiltrate sensitive data without detection.
+
+    In essence, this threat actor represents a formidable challenge to secure communications platforms and critical infrastructures, particularly within high-stakes environments like financial institutions. Their sophisticated blend of state-level motives and cybercriminal pragmatism underscores the necessity for robust patch management, advanced threat detection, and stringent identity access controls to mitigate the evolving landscape of cyber threats.
+
+    ### D. Kill Chain Analysis
+    | Stage          | Tactic               | Technique         |
+    |----------------|----------------------|-------------------|
+    | Reconnaissance | Discovery            | T1082, T1083      |
+    | Weaponization  | Resource Development | T1203, T1190      |
+    | Delivery       | Initial Access       | T1059             |
+    | Exploitation   | Execution            | T1190             |
+    | Installation   | Persistence          | T1053             |
+    | C2             | Command & Control    | T1048.002         |
+    | Actions        | Impact               | T1070, T1562      |
+
+    ### E. Kill Chain Detailed Description
+
+    #### E2. Weaponization & Payload Preparation
+    Armed with the target profile, the adversaries craft a multi-faceted attack payload, combining exploits that address several weaknesses identified in the threat model:
+    - They bundle a remote code execution exploit targeting the Windows LDAP service (CVE-2024-49112) with a second exploit leveraging a GStreamer integer underflow (CVE-2024-47606), intending to bypass security checks and execute arbitrary code within the Zoom client environment.
+    - The payload is further obfuscated to evade detection. The attackers embed commands to disable integrity checks (exploiting known tampering weaknesses) and include scripts for lateral movement-such as privilege escalation routines based on the "Privilege Escalation within Zoom Client" scenario.
+    - The final payload package is tested in a lab environment to ensure that it not only delivers the malicious code remotely but also circumvents common defenses like digital signature verification and configuration integrity audits, as recommended by the mitigations in the STRIDE model.
+
+    #### E3. Delivery of the Malicious Payload
+    Leveraging both technical and social engineering methods, the attackers then deliver the payload into the target environment:
+    - A spearphishing campaign is launched, targeting employees through emails that include links and attachments purporting to offer updated Zoom configurations or meeting recordings. These emails are crafted to exploit human factors-taking advantage of gaps in user awareness (the "User Credential Spoofing" threat) and social trust.
+    - Simultaneously, the adversaries intercept and manipulate network packets in transit (a direct exploitation of the "Network Packet Tampering" vulnerability). By modifying these packets, the attackers can inject the malicious payload or alter secure communications, taking advantage of scenarios where encryption might be misconfigured or bypassed.
+    - In some instances, compromised third-party update channels are used as a delivery medium. Given the public-facing nature of the application and potential shortcomings in update integrity monitoring, this vector proves effective for spreading the payload into the wider network.
+
+    #### E4. Exploitation of Vulnerabilities
+    Once the payload is delivered, the exploitation phase is triggered:
+    - On execution, the GStreamer component's integer underflow (CVE-2024-47606) is used to hijack function pointers and insert the attacker's code into the application flow. This exploit provides a foothold into the system via arbitrary code execution.
+    - In parallel, the attackers target the Windows LDAP service vulnerability (CVE-2024-49112) to gain remote code execution privileges. Once inside, they take steps to disable security features-for example, modifying Zoom client configuration files (mirroring "VDI Configuration Tampering") to suppress integrity monitoring routines.
+    - With the dual exploitation of application tampering and network manipulation, attackers achieve immediate code execution and bypass role-based access controls. This stage often includes further discovery actions (using techniques analogous to MITRE's T1082 and T1083) to map internal file systems and security configurations.
+
+    #### E5. Installation, Persistence & Privilege Escalation
+    After the initial compromise, the adversary installs persistent mechanisms to maintain long-term access:
+    - The payload installs backdoor software that uses scheduled tasks (MITRE's T1053) to ensure reactivation on system reboot, effectively establishing persistence even after system restarts.
+    - The attackers elevate their privileges by abusing service accounts-taking advantage of threats related to "Service Account Compromise within Zoom Environment"-and use obfuscation techniques to hide their footprints (e.g., Indicator Removal on Host, T1070). Meanwhile, system and log file manipulation (as described under "Log File Manipulation in Zoom Environment") ensures that forensic traces of their initial entry and exploitation are erased or obscured.
+    - With higher privileges secured, lateral movement is planned. The adversaries begin to search for additional vulnerabilities in the internal infrastructure, potentially aiming at other systems connected via SMB/Windows Admin Shares (as reflected in T1021.002) or exploiting misconfigured client installations.
+
+    #### E6. Command & Control (C2) Establishment
+    At this stage, the compromised system begins to communicate with the attacker-controlled infrastructure:
+    - A covert command and control channel is established over unencrypted channels (T1048.002), which may use obfuscated, non-standard ports to avoid detection by network monitoring tools.
+    - The compromised Zoom client, now acting as a foothold inside a larger network, relays commands to an external C2 server. This allows the attacker to execute remote scripts, adjust payload parameters on the fly, and conduct continual system reconnaissance.
+    - Furthermore, the adversary leverages compromised credentials and additional network vulnerabilities (such as those used in "VDI Session Hijacking") to further penetrate the internal network, setting the stage for data exfiltration and other malicious activities.
+
+    #### E7. Actions on Objectives & Data Exfiltration
+    With persistence and control firmly established, the attackers move to achieve their ultimate goals:
+    - They begin exfiltrating sensitive data-such as recorded meeting transcripts, protected communications, or customer data-that might be stored or temporarily held within Zoom sessions. This is achieved through unencrypted or lightly secured channels detailed in the "Exfiltration Over Unencrypted/Obfuscated Non-C2 Protocol" section (MITRE T1048.002).
+    - In tandem, the adversaries disrupt ongoing communications by tampering with active sessions (for example, initiating "VDI Session Hijacking"), leading to data leakage or service disruption. In high-impact
+
+    #### E8. Kill Chain Summary
+    
+    In this detailed kill chain:
+    - The attack starts with precise intelligence gathering about the Zoom Client's operational environment and vulnerabilities.
+    - Weaponization combines critical CVE exploits (CVE-2024-49112, CVE-2024-47606) with social engineering to craft a stealthy payload.
+    - Delivery exploits both network vulnerabilities (packet tampering) and human factors (phishing), allowing the payload to be introduced into the system.
+    - Exploitation leverages well-documented software vulnerabilities and configuration weaknesses, leading to local privilege escalation.
+    - Installation and persistence are cemented via scheduled tasks and log manipulation, solidifying long-term control.
+    - A robust, concealed C2 channel is established, enabling continuous remote control and lateral movement.
+    - Finally, adversaries execute their mission objectives by exfiltrating sensitive data and disrupting communications-all while erasing trails to prolong stealth and delay incident response.
+
+    ***This comprehensive kill chain demonstrates how multiple vulnerabilities and control failures-from misconfigured network defenses (e.g., VM14) and poor runtime authentication (AC18) to delayed patch management (AM18)-can be orchestrated by a determined attacker to compromise a mission-critical application such as the Zoom Client. Immediate remediation (through patching, stronger access controls, and enhanced monitoring) is essential to mitigate such an advanced threat scenario.***
+
+    ### F. ACME Bank Taxonomy Control Failures (SUSPECTED)
+    1. **AC18**: Weak runtime authentication enforcement. This allows attackers unauthorized access and exploits vulnerabilities for privilege escalation.
+    2. **VM14**: Inadequate network security measures failed to detect and prevent malicious network traffic, allowing exploitation of public-facing applications.
+    3. **AM18**: Insufficient security compliance monitoring leading to delayed patch management, enabling exploitation of known vulnerabilities like CVE-2024-49112 and CVE-2024-47606.
+
+cti_report:
+  title: "ACME Bank Quarterly Threat Trends Report **Cyber Intelligence Center** 2025"
+  content: |
+      # 
+      ![ACME Bank Logo](https://www.ACME Bank.com)
+
+      # **Internal** # Quarterly Threat Trends Report **Cyber Intelligence Center** 1Q 2025
+      # Vulnerabilities and Zero-Day Trends 1Q25
+
+      ## Threat insights
+
+      Of the vulnerabilities added to KEV in 1Q25, over 42% were classed as zero-days, and all but one were under active exploitation. In 4Q24, the percentage was 35%. It is important to note, however, that this metric does not account for the time for secondary actors to adopt zero-day vulnerabilities for exploitation after disclosure.
+      - 31 were classed as zero-days, already actively exploited
+      - 12 of the zero-days impacted Microsoft products.
+
+      China-based espionage threat actors were observed actively exploiting vulnerabilities in Ivanti products. The vulnerabilities, CVE-2025-0282 and CVE-2025-0283, both stack-based buffer overflow bugs, allow a remote unauthenticated attacker to achieve remote code execution or a local authenticated attacker to escalate their privileges.
+
+      ## Threat outlook
+
+      While we are likely to continue to see periodic examples of ransomware actors pioneering zero-day vulnerabilities, it is likely that the majority will focus on exploiting recently disclosed vulnerabilities. This is due in part to the fact that even well-known critical vulnerabilities remain unpatched for extended periods of time, presenting easy targets for these groups.
+      Of the 31 zero-day vulnerabilities in 1Q, Microsoft included six zero-day vulnerabilities in their March Patch Tuesday patch that attackers were actively exploiting in the wild. Most of these zero-day vulnerabilities involved file-system drivers that require local access to exploit. Consequently, they are more difficult to exploit, resulting in criticality levels being classified as HIGH rather than CRITICAL (the two highest vulnerabilities had CVSS scores of 9/10).
+
+      ## Exploitation by Quarter
+
+      | Quarter | N-Days 0 Days | N-Days D+1 - D+7 |
+      |---------|---------------|--------------------|
+      | Q1-2024 | 20            | 30                 |
+      | Q2-2024 | 30            | 40                 |
+      | Q3-2024 | 30            | 40                 |
+      | Q4-2024 | 40            | 50                 |
+      | Q1-2025 | 70            | 80                 |
+
+      Data taken primarily from US CISA's Known Exploited Vulnerabilities (KEV) database. These represent the number of vulnerabilities added to the database each quarter. These do not exclusively represent newly disclosed vulnerabilities and include previously known vulnerabilities that are newly exploited.
+      The total increase in the chart above against the numbers for Q4 2024 is explained in that in Q1 2025 every new KEV vulnerability was categorized as zero-day or not, which was not always the case in the past.
+
+      # General DDoS Trends 1Q25
+
+      ## Threat insights
+
+      Over Q1 Akamai, ACME Bank DDoS mitigation provider, observed a total of 778 DDoS events against 156 data centers belonging to 98 financial services customers.
+      Akamai observations on attacks against this sector of their customer base include:
+      - The most frequent attack vector was DNS flood (29%, 222).
+      - The largest attack in Q1 measured in bandwidth peaked at 450.71 Gbps and involved a combination of DNS reflection, RESET flood, SYN flood and UDP fragmentation traffic.
+      - The largest attack peaked at 46.46 Mpps and leveraged DNS reflection, SYN ACK floods, SYN floods, TCP anomalies and UDP fragments.
+
+      
+      ![DDoS attack vectors observed in Q1 2025](image_link)
+
+
+      ## Threat outlook
+
+      There was a minor decrease in the frequency and intensity of attacks compared to 4Q24 that could be seasonal in nature. DDoS continues to be an easily accessible attack vector for financially-motivated, ideologically motivated, and state aligned threat groups. As such, the attack vector is in line with findings from Europol�s latest Serious and Organised Crime Threat Assessment, which describes how criminal networks are increasingly connected with hybrid threats, particularly from Russia. This connection is leading to a rise in politically motivated cyberattacks and sabotage of critical infrastructure within the EU. DDoS attacks, primarily used for disruption and extortion, may become more prevalent as a tactical tool used by these hybrid threats, thereby increasing the risk of DDoS attacks on critical infrastructure during periods of geopolitical instability.
+
+      # Financial Sector DDoS Trends 1Q25
+
+      ## Threat insights
+
+      - FS-ISAC member-reported DDoS attacks decreased slightly in 1Q25 compared to 4Q24. However, 1Q25 attacks were significantly higher than the same period in 2024. In 1Q24, FS-ISAC reported a total of 30 attacks while in 1Q25, a total of 91 attacks were reported.
+      - Geopolitical conflicts continued to be a key driver of DDoS activity in 1Q, consistent with trends observed in previous quarters.
+      - On 5 & 13 January, several Swiss financial institutions, including ACME Bank, experienced DDoS probes or attacks by the threat actor �RootDoS�, a pro-Palestine hacktivist group, apparently in retaliation for the official ban on face coverings that came into effect in Switzerland on January 1. Similarly, on 20 January, several Swiss institutions, mainly across tourism and rail services, faced DDoS attacks from pro-Russian hacktivist group NoName057(16). The threat actor threatened to target entities in Switzerland in response to Switzerland and the UK pledging $500,000 for a humanitarian demining project in Ukraine.
+
+      ## Threat outlook
+
+      FS-ISAC member-reported DDoS attacks decreased from 4Q24 to 1Q25, from a total of 109 to 91 attacks. This is in line with the wider DDoS trend observed in 1Q25. The data is also consistent with internal ACME Bank data, with January seeing the highest number of attacks for the quarter. However, the slight decrease for the quarter is not an indication of long term trends as DDoS attacks are expected to continue to increase in frequency and intensity, continuously breaking records for their scale and volume observed. CIC expects global events will continue to contribute to increasing DDoS activity, which will affect financial institutions. Significant impact to ACME Bank remains unlikely.
+
+      ## FS-ISAC member-reported DDoS
+
+      | Date | Number of Attacks |
+      |------|-------------------|
+
+      # 
+      ![ACME Bank Logo](httpss://www.ACME Bank.com)
+
+      While we are likely to see periodic examples of ransomware actors pioneering zero-day vulnerabilities, it is likely that the majority will focus on exploiting recently disclosed vulnerabilities. This is due in part to the fact that even well-known critical vulnerabilities remain unpatched for extended periods of time, presenting easy targets for these groups.
+
+      Of the 31 zero-day vulnerabilities in 1Q, Microsoft included six zero-day vulnerabilities in their March Patch Tuesday patch that attackers were actively exploiting in the wild. Most of these zero-day vulnerabilities involved file-system drivers that require local access to exploit. Consequently, they are more difficult to exploit, resulting in criticality levels being classified as HIGH rather than CRITICAL (the two highest vulnerabilities had CVSS scores of 9/10).
+
+      ## Exploitation by Quarter
+      | Quarter | N-Days 0 Days | N-Days D+1 - D+7 |
+      |---------|---------------|------------------|
+      | Q1-2024 | 20            | 30               |
+      | Q2-2024 | 30            | 40               |
+      | Q3-2024 | 30            | 40               |  
+      | Q4-2024 | 40            | 50               |
+      | Q1-2025 | 70            | 80               |
+
+      ## Threat insights
+      - FS-ISAC member-reported DDoS attacks decreased slightly in 1Q25 compared to 4Q24. However, 1Q25 attacks were significantly higher than the same period in 2024. In 1024, FS-ISAC reported a total of 30 attacks while in 1025, a total of 91 attacks were report geopolitical conflicts continued to be a kew driver of DDoS activitv in 10. consistent with trends observed in previous quarter.
+      
+      | Date         | Number of Attacks |
+      |--------------|-------------------|
+      | 01/10/2024   | 10                |
+      | 01/11/2024   | 20                |
+      | 01/12/2024   | 50                |
+      | 01/01/2025   | 40                |
+      | 01/02/2025   | 30                |
+      | 01/03/2025   | 20                |
+
+      Data derived from FS-ISAC member reports. The underlying data does not represent all DDoS attacks against the financial sector, nor can it be considered reflective of a representative sample of financial institutions. However, it can be useful for identifying underlying trends in DDoS activity against the financial sector.
+
+      # Phishing Trends 1Q25
+
+      - The phishing volume observed across ACME Bank increased in March across all regions, compared to January and February. The spike in emails for AMER and CH may have been due to tax season in both countries. AMER saw the highest number of phishing attempts across all regions.
+      - 76% of campaigns leveraged business and work-related themes. This is a recurring lure which is usually leveraged by threat actors to redirect users to credential harvesting pages, or for financial fraud attempts where the victim is requested to key in their credit card details.
+      - On March 3, KnowBe4 Threat Labs identified a large-scale phishing campaign originating from legitimate Microsoft domains. The attack peaked on March 3, with 7,000 phishing emails from sent in 30 minutes. While it is unclear if artificial intelligence (AI) was used in this phishing campaign, KnowBe4�s annual [Phishing Trends Report](https://www.knowbe4.com/phishing-trends-report)
+        indicates that advances in AI are leading to phishing attacks that are more prolific and convincing to end users.
+      - The ClickFix social engineering tactic has gained significant traction and widespread adoption among threat actors due to its effectiveness. ClickFix operates by deceiving users into taking an action to �fix� a non-existent issue by either automatically or manually copying and pasting a malicious command into their terminal or Run dialog.
+
+      Phishing campaigns are likely to increase in 2Q25 due to the availability of new phishing kits coupled with greater accessibility of AI tools. These campaigns are also likely to be more effective. On the other hand, continued finetuning and updating of the firm�s phishing detection controls is likely to lead to a significant reduction in the volume of phishing emails successfully
+      reaching employees inboxes.
+
+      ## Phishing Volume By Region
+
+      | Region | Jan | Feb | Mar |
+      |--------|-----|-----|-----|
+      | AMER   | 60  | 80  | 110 |
+      | CH     | 40  | 50  | 70  |
+      | APAC   | 30  | 40  | 60  |
+      | UK     | 20  | 30  | 50  |
+      | EMEA   | 50  | 60  | 90  |
+
+      # Threat Spotlight: Threats to the Cloud Environment
+
+      ## Overview
+      As organizations increasingly migrate to cloud platforms, cybercriminals are adapting their tactics to exploit cloud-specific vulnerabilities, potentially posing significant risks to financial services. A notable example is the recent breach of Oracle Clouds SSO (Single Sign-On) infrastructure, with the theft of 6 million data records � including employee credentials, email addresses, and other sensitive enterprise-related information. This incident and others underscore the importance of robust cloud security measures. Financial institutions are particularly vulnerable due to the high volume of confidential data they handle and their reliance on cloud services for providing critical services to banks, aiming to mitigate risks like cyber-attacks and service outages. In response to these threats, UK regulators have begun overseeing tech firms providing critical services to banks, aiming to mitigate risks like cyber-attacks and service outages. These developments emphasize the need for financial services to implement comprehensive cloud security strategies to protect against evolving cyber threats.
+
+      ## FS-ISAC member-reported DDoS
+      | Date       | Number of Attacks |
+      |------------|-------------------|
+      | 01/10/2024 | 10                |
+      | 01/11/2024 | 20                |
+      | 01/12/2024 | 50                |
+      | 01/01/2025 | 40                |
+      | 01/02/2025 | 30                |
+      | 01/03/2025 | 20                |
+
+      ## Phishing Volume By Region
+      | Region | Jan | Feb | Mar |
+      |--------|-----|-----|-----|
+      | AMER   | 60  | 80  | 110 |
+      | CH     | 40  | 50  | 70  |
+      | APAC   | 30  | 40  | 60  |
+      | UK     | 20  | 30  | 50  |
+      | EMEA   | 50  | 60  | 90  |
+      
+      ## Notable Developments
+      
+      | Nation-State Threats | Silk Typhoon Targeting Cloud Apps | Ransomware Targeting AWS & Containerized Environments | Misconfigurations & Supply Chain Weaknesses | Data Exfiltration & Lateral Movement in the Cloud |
+      |----------------------|-----------------------------------|----------------------------------------------------------|------------------------------------------------|----------------------------------------------------------------|
+      Silk Typhoon, a Chinese APT group, has shifted focus toward compromising cloud-hosted applications and identity systems like Azure AD. They often leverage stolen credentials and legitimate cloud tools to persist and move laterally within environments. These campaigns are highly stealthy, often remaining undetected while exfiltrating sensitive data over long periods. | Modern
+      ransomware groups are increasingly targeting cloud services, encrypting data within AWS ECS containers, S3 buckets, and EBS volumes. They typically gain access via compromised API keys or misconfigured IAM roles. Some operations now deploy ransomware across Kubernetes clusters, disrupting services and increasing ransom pressure. | A major source of cloud compromise remains human error,
+      especially misconfigured storage buckets and excessive permissions. Attackers exploit these weak points using automated scanning tools. Additionally, vulnerable CI/CD pipelines and container images expose environments to both direct exploitation and supply chain attacks. | Once inside, attackers use legitimate APIs and cloud-native tools to steal data and move across services undetected.
+      Techniques include abusing AWS CLI or SDKs, altering logs, and creating hidden backdoors in serverless functions or IAM roles. This makes containment and incident response in cloud environments especially challenging. |
+
+      *ACME Bank*
+
+      
+      # Notable Events by Region 1Q25
+
+      ## Americas
+      - On 23 January, the FBI warned that fake North Korean IT workers were stealing source code and extorting U.S. companies that had been tricked into hiring them. Two North Korean nationals and three facilitators who ran US-based "laptop farms" were indicted for fraud involving remote technology worker schemes that generated revenue for the DPRK to bypass sanctions.
+      - On 28 February, US Defence Secretary Pete Hegseth reportedly ordered US Cyber Command to stand down from all offensive cyber operations against Russia, amid negotiations on the war in Ukraine.
+      - On 5 March, the U.S. Department of Justice indicted 12 Chinese nationals, accusing them of being involved in cyberattacks against U.S. and Asian government agencies, and dissidents of the People's Republic of China (PRC).
+
+      ## Europe
+      - On 30 January 2025, Europol and international law enforcement agencies announced the forced closure of two of the world's largest cybercrime forums, Cracked and Nulled, which together had approximately 10 million users.
+      - On Tuesday 4 February, the Everest ransomware group claimed on its data leak site that ITS Global's internal network had been compromised. ITS Global is a specialist in banking software and integrations and is leveraged by many financial institutions.
+
+      ## Switzerland
+      - On 5 January, several Swiss financial institutions, including ACME Bank, experienced DDoS probes or attacks. The attacks varied in nature, lasted for a few minutes, and caused minor impact in some cases. One of these has been publicly claimed by the threat actor "RooDOS", a pro-Palestine hacktivist group, on its Telegram channel apparently in retaliation for the official ban on face
+        coverings which came into effect in Switzerland on January 1.
+      - On 20 January, several Swiss institutions, mainly across tourism and rail services, faced DDoS attacks from pro-Swiss groups.
+
+      ## Middle East & Africa
+      - On 25 February, the UAE Cyber Security Council and IT managed service provider CPX published a report indicating the UAE's financial sector is increasingly targeted by threat actors. Some 21% of cybersecurity incidents in the region targeted banks and financial services, making it the second-most targeted after government systems (35%).
+
+      ## Asia Pacific
+      - On 22 January, Cloudflare reported it had blocked a 5.6 terabit per second (Tbps) UDP DDoS attack in the last quarter of 2024. The attack was launched by a Mirai-variant botnet against an internet service provider in Eastern Asia and lasted 80 seconds.
+      - On 28 January, DeepSeech, a Chinese AI startup, announced that it was forced to limit sACME Bankcriptions to its online services after experiencing large-scale malicious attacks on its services. It remains unclear if this attack was malicious or simply overload due to demand.
+      - OpenAI removed numerous accounts linked to users from China and North Korea, believed to be exploiting its technology for malicious activities including surveillance and opinion-influencing operations.
+
+      Glossary of Terms
+      - **AitM - Adversary-in-the-Middle**
+        AitM a form of data eavesdropping and theft where an attacker intercepts data from a sender to the recipient, and then from the recipient back to the sender. It�s called �adversary in the middle� because the attacker�s device sits between the sender and recipient and relays messages silently without making either party aware of the eavesdropping
+
+      Glossary of Terms
+
+      - **APT - Advanced persistent threat**
+      An advanced persistent threat is a stealthy threat actor, typically a nation state or state-sponsored group, which gains unauthorized access to a computer network and remains undetected for an extended period. In recent times, the term may also refer to non-state-sponsored groups conducting large-scale targeted intrusions for specific goals.
+
+      - **Bits per second (bps)**
+      The volume of a DDoS attack is measured in bits per second. Higher volume attacks are often measured in gigabits per second (Gbps) or terabits per second (Tbps), which are equal to one million bits per second and one trillion bits per second, respectively.
+
+      - **DDoS - Distributed denial-of-service**
+      A distributed denial-of-service (DDoS) attack is an attempt to make an online service unavailable by overwhelming it with traffic from multiple sources. They target a wide variety of important resources, from banks to news websites, and present a major challenge to making sure people can publish and access important information.
+
+      - **Deepfake**
+      A deepfake is an artificial image or video (a series of images) generated by a special kind of machine learning called �deep� learning (hence the name). There are two levels of deepfakes work in this article: one for the layperson, and one for the technically inclined.
+
+      - **DNS Flood Attack**
+      DNS flood is a type of Distributed Denial of Service (DDoS) attack in which the attacker targets one or more Domain Name System (DNS) servers belonging to a given zone, attempting to hamper resolution of resource records of that zone and its sub-zones.
+
+      - **IAB - Initial Access Broker**
+      An IAB is a threat actor specializing in infiltrating computer systems and networks, then selling that unauthorized access to other malicious bad actors.
+
+      - **Infostealer**
+      An information stealer (or info stealer) is a Trojan that is designed to gather information from a system. The most common form of info stealer gathers login information, like usernames and passwords, which it sends to another system either via email or over a network. Other common information stealers, such as keyloggers, are designed to log user keystrokes which may reveal sensitive information.
+
+      # Appendix A. Top Threats
+
+      ## Threat Actors
+
+      | Rank | Threat Actor      | Category       |
+      |------|-------------------|----------------|
+      | 1    | Scattered Spider  | Ransomware     |
+      | 2    | Lazarus Group     | Crypto Theft   |
+      | 3    | TA577             | IAB            |
+      | 4    | FIN7              | Ransomware     |
+      | 5    | Romcom            | Espionage      |
+      | 6    | Evil Corp         | Ransomware     |
+      | 7    | FIN8              | Ransomware     |
+      | 8    | UNC1543           | IAB            |
+      | 9    | UNC4536           | IAB            |
+      | 10   | UNC5111           | IAB            |
+      | 11   | UNC2926           | IAB            |
+      | 12   | UNC5055           | IAB            |
+      | 13   | UNC5342           | Crypto Theft   |
+      | 14   | Solar Spider      | IAB            |
+      | 15   | APT29             | Espionage      |
+
+      ## Ransomware
+
+      | Rank | Ransomware |
+      |------|------------|
+      | 1    | Lockbit    |
+      | 2    | Cl0p       |
+      | 3    | BianLian   |
+      | 4    | Qilin      |
+      | 5    | BlackBasta |
+
+      ## Malware
+
+      | Rank | Malware     | Category             |
+      |------|-------------|----------------------|
+      | 1    | DarkGate    | Loader               |
+      | 2    | Qakbot      | Info Stealer, Loader |
+      | 3    | AgentTesla  | Info Stealer         |
+      | 4    | AsyncRAT    | Trojan               |
+      | 5    | SocGholish  | Loader               |
+
+      # Appendix B. High Priority TTPs
+
+      ## 1Q2025
+
+      | T-Code | Technique                                                              | Tactic | Associated Threat / Used By |
+      |--------|------------------------------------------------------------------------|--------|-----------------------------|
+
+      | 2  | Lazarus Group | Crypto Theft             |
+      | 3  | TA577         | IAB                      |
+      | 4  | FIN7          | Ransomware               |
+      | 5  | Romcom        | Espionage                |
+      | 6  | Evil Corp     | Ransomware               |
+      | 7  | FIN8          | Ransomware               |
+      | 8  | UNC1543       | IAB                      |
+      | 9  | UNC4536       | IAB                      |
+      | 10 | UNC5111       | IAB                      |
+      | 11 | UNC2926       | IAB                      |
+      | 12 | UNC5055       | IAB                      |
+      | 13 | UNC5342       | Crypto Theft             |
+      | 14 | Solar Spider  | IAB                      |
+      | 15 | APT29         | Espionage                |
+
+      | Rank | Malware    | Category                 |
+      |------|------------|--------------------------|
+      | 1    | DarkGate   | Loader                   |
+      | 2    | Oakbot     | Info Stealer, Loader     |
+      | 3    | AgentTesla | Info Stealer             |
+      | 4    | AsyncRAT   | Trojan                   |
+      | 5    | SocGholish | Loader                   |
+
+      | T-Code    | Technique                                                 | Tactic                   | Associated Threat / Used By       |
+      |-----------|-----------------------------------------------------------|--------------------------|-----------------------------------|
+      | T1115     | Clipboard Data                                            | Collection               | Snake Keylogger                   |
+      | T1564.004 | Hide Artifacts: NTFS File Attributes                      | Defense Evasion          | LockBit, RansomHub                |
+      | T1546.015 | Event Triggered Execution: Component Object Model Hijacking | Privilege Escalation     | Fancy Bear (APT28), ComRAT        |
+      | T1059.001 | Command and Scripting Interpreter: PowerShell             | Execution                | AsyncRAT, DarkGate                |
+      | T1059.006 | Command and Scripting Interpreter: Python                 | Execution                | AsyncRAT, XWorm                   |
+      | T1055.004 | Process Injection: Asynchronous Procedure Call            | Defense Evasion          | AsyncRAT, XWorm                   |
+      | T1218.014 | System Binary Proxy Execution: MMC                        | Defense Evasion          | EncryptHub                        |
+      | T1218.013 | System Binary Proxy Execution: Mavinject                  | Defense Evasion          | Earth Preta (Mustang Panda)       |
+      | T1127     | Trusted Developer Utilities Proxy Execution               | Defense Evasion          | Squidoor                          |
+
+      # 1Q25 Key Takeaways
+
+      ## CIC Priority Threats
+      - While the list of Priority Threats was previously dominated by Ransomware threat actors, Initial Access Brokers (IABs) now make up the majority, followed by Ransomware, Espionage and Crypto Theft. Most priority threat actors continue to be at least partially financially motivated.
+      - As geopolitical tensions increase globally, non-financially motivated threat actors, including those focused on espionage or disruption, may become more prominent threats.
+
+      ## Malware
+      - Loaders and Trojans associated with SocGholish/FakeUpdates continue to be persistently observed by ACME Bank.
+      - 1Q25 saw the first reported sighting of the new LockBit 4.0 ransomware, while CIOP continued its Cleo MFT campaign.
+
+      ## Vulnerabilities
+      - 73 newly disclosed vulnerabilities were added to CISA's Known Exploited Vulnerabilities (KEV) catalogue in 1Q, an increase over 4Q24, but 43 were CVEs added from previous years. One MS Windows zero-day, ZDI-CAN-25373, was not added to KEV since it has not been acknowledged yet by the vendor, despite active exploitation.
+      - 42% (31) of CISA's KEV vulnerabilities were classed as zero-days, 12 of which impact Microsoft products.
+
+      ## DDOS
+      - ACME Bank and other Swiss financial peers were targeted as part of Swiss campaigns. ACME Bank observed several probes which were all successfully blocked and had no impact.
+      - Geopolitical conflicts continued to be a key driver of DDoS activity in 1Q.
+
+      ## Phishing
+      - March saw the highest volume of phishing attempts across all regions. Phishing lures were mostly business-related.
+      - The increasing accessibility of Artificial Intelligence (AI) and phishing kits is likely to continue to drive up phishing campaigns in 2Q.
+
+      # 1Q25 Highlights
+
+      The overall threat outlook remained stable for the first quarter of 2025. In January, Cloudflare reported the largest DDoS attack on record peaking at 5.6 TBPS and lasting 80 seconds, while pro-Russian hacktivist group NoName057(16) launched DDoS attacks targeting several Swiss institutions during the World Economic Forum (WEF). In February, nation state actors linked to North Korea stole USD 1.46 billion worth of Ethereum from Bybit, the largest ever theft from a crypto platform, in March a threat actor claimed to have compromised Oracle cloud infrastructure. The US Director of National Intelligence and French Cybersecurity Agency ANSSI both published annual reports for 2024 highlighting a rise of geopolitics in driving cybercrime and growing cooperation among adversaries. ANSSI also mentioned the increase in the targeting of cloud environments. Cooperation between groups was also highlighted in the Europol EU Serious and Organised Crime Threat Assessment in the EU. Europol predicted that ransomware, data theft and extortion will become the most disruptive forms of crime globally.
+
+      ## January
+      - **On 5 January**, several Swiss financial institutions experienced DDoS probes or attacks. The attacks varied in nature, lasted for a few minutes, and caused minor impact in some cases. Threat actor �RootTDoS�, a pro-Palestine hacktivist group, claimed responsibility for some of those attacks on its Telegram channel apparently in retaliation for the official ban on face coverings which became effective in Switzerland on 1 January. ACME Bank saw probes but were all successfully mitigated by the firm�s anti-DDoS mitigation controls.
+      - **On 24 January**, CIC received information from a peer financial institution that identified several personas overlapping with previously reported Democratic People�s Republic of Korea (DPRK) fake IT workers Modus Operandi and DPRK monitoring activities, on 24 March TISO Cyber Defense identified an individual suspected to be associated with DPRK who applied for an open position at ACME Bank, unsuccessfully. As previously reported, the DPRK workers primarily seek to gain employment to raise funds for the North Korean regime, but there are reported cases where these individuals have deployed malware or exfiltrated sensitive information and demanded a ransom to not publish the data. In the ACME Bank case, the threat actor created a ACME Bank persona and applied for six ACME Bank roles. Only one of the applications was processed, passing initial hiring and technical screening. The malicious candidate was observed after this stage. The peer institution reported having detected job applications from these personas, likely in an attempt to infiltrate the company.
+
+      | 14 | Solar Spider | IAB       |
+      | 15 | APT29        | Espionage |
+
+      | T-Code    | Technique                                                 | Tactic                  | Associated Threat / Used By     |
+      |-----------|-----------------------------------------------------------|-------------------------|---------------------------------|
+      | T1115     | Clipboard Data                                            | Collection              | Snake Keylogger                 |
+      | T1564.004 | Hide Artifacts: NTFS File Attributes                      | Defense Evasion         | LockBit, RansomHub              |
+      | T1546.015 | Event Triggered Execution: Component Object Model Hijacking | Privilege Escalation    | Fancy Bear (APT28), ComRAT      |
+      | T1059.001 | Command and Scripting Interpreter: PowerShell             | Execution               | AsyncRAT, DarkGate              |
+      | T1059.006 | Command and Scripting Interpreter: Python                 | Execution               | AsyncRAT, XWorm                 |
+      | T1
+
+      
+      ## January
+
+      - **On 5 January**, several Swiss financial institutions experienced DDoS probes or attacks. The attacks varied in nature, lasted for a few minutes, and caused minor impact in some cases. Threat actor �RooTDoSo�, a pro-Palestine hacktivist group, claimed responsibility for some of those attacks on its Telegram channel apparently in retaliation for the official ban on face coverings
+        which became effective in Switzerland on 1 January. ACME Bank saw probes but were all successfully mitigated by the firm�s anti-DDoS mitigation controls.
+      - **On 24 January**, CIC received information from a peer financial institution that identified several personas overlapping with previously reported Democratic People�s Republic of Korea (DPRK) fake IT workers Modus Operandi and DPRK monitoring activities, on 24 March TI50 Cyber Defense identified an individual suspected to be associated with DPRK who applied for an open position at
+        ACME Bank, unsuccessfully. As previously reported, the DPRK workers primarily seek to gain employment to raise funds for the North Korean regime, but there are reported cases where these individuals have deployed malware or exfiltrated sensitive information and demanded a ransom to not publish the data. In the ACME Bank case, the threat actor created a ACME Bank persona and applied for six ACME Bank roles. Only
+        one of the applications was processed, passing initial hiring and technical screening. The malicious candidate was later rejected due to location requirements. No further interaction with the candidate was observed after this stage. The peer institution reported having detected job applications from these personas, likely in an attempt to infiltrate the company.
+
+      ## February
+
+      - **Insight Partners** disclosed that an unauthorized actor accessed their systems. The company, which detected the incident on January 16, described this as having been driven by �a sophisticated social engineering entry-point� and that they have not yet concluded what types of systems or data were affected by the cyberattack. Insight is one of the largest investment firms in the
+        world with investments in 800 companies worldwide, and over 55 portfolio companies achieving an IPO.
+      - **On 21 February**, hackers linked to North Korea breached Bybit and stole approximately USD 1.46 billion worth of Ethereum from the online wallet in what is probably the largest theft ever from a crypto platform. The company reported that the incident occurred when funds were moved from a �cold� wallet, whose private keys are kept offline, to a �hot� wallet used for daily
+        trading.
+
+      ## March
+
+      - **On 4 and 19 March 2025**, ACME Bank faced small DDoS attacks that were mitigated without impact. On 4 March, a one-minute probe was launched against the CS online banking portal; the attack on 19 March lasted several hours and was launched by the DDoS groups M1 and 17.69 DpsX and was mitigated without impact. A large Swiss peer bank reported a DDoS on 3 March that lasted several hours
+        and peaked at 1059 Mbps. They reported some impact since 5% of the attack traffic was not blocked and affected service availability. In late March, a threat actor using the alias �rose87164� claimed to have compromised the Oracle cloud infrastructure and announced threats to attack US banks. The threat actor claimed to have compromised the Oracle cloud infrastructure and announced
+        threats to attack US banks.
+      - A hacker using the alias �rose87164� claimed on 20 March to have breached Oracle Cloud�s SDG Single-Sign-On infrastructure, with the threat to attack US banks. The threat actor claimed to have compromised the Oracle cloud infrastructure and announced threats to attack US banks. The threat actor, who claimed to have compromised the Oracle cloud infrastructure, threatened to attack
+        US banks.
+
+      # CIC Priority Threat Actors
+
+      From 1Q25 onwards, CIC priority threat actor reporting includes 15 threat actors, up from 10 previously. This change is represented in the graph to the right.
+
+      - Compared with previous quarters, there is a greater diversity among priority threat actor categories. While the list was previously dominated by Ransomware threat actors, Initial Access Brokers (IABs) now make up the majority of priority threat actors, followed by Ransomware, Espionage and Crypto Theft.
+      - Nevertheless, with the exception of two Espionage threat actors, the vast majority of priority threat actors are at least partially financially motivated.
+      - The two Espionage threat actors are reportedly Russian state-sponsored groups RomCom and APT29. RomCom has previously targeted the Financial Services sector and is a versatile and capable threat actor, as the group has been observed exploiting multiple zero-day vulnerabilities and employing techniques from all 14 MITRE Tactics. APT29 is a sophisticated threat actor known for
+        targeting Microsoft environments.
+      - North Korea-linked UNC5342, one of two Crypto Theft threat actors, has been observed posing as recruiters looking to fill lucrative positions at IT companies and using BeaverTail malware in phishing campaigns targeting job seekers in the technology industry.
+
+      Ransomware actors and IABs, which are also part of the ransomware ecosystem, are likely to continue to make up the majority of CIC's priority threats, with phishing continuing to be an effective access vector. However, as geopolitical tensions increase globally, non-financially motivated threat actors, including those focused on espionage or disruption, may become more prominent
+      threats.
+
+      ## Priority Threat Actors by Category
+
+      | Quarter | Ransomware | DDoS | Espionage | Crypto Theft | IAB |
+      |---------|------------|------|-----------|--------------|-----|
+      | 2024 Q2 | 5          | 0    | 2         | 1            | 2   |
+      | 2024 Q3 | 5          | 0    | 2         | 1            | 2   |
+      | 2024 Q4 | 5          | 0    | 2         | 1            | 2   |
+      | 2025 Q1 | 5          | 0    | 2         | 2            | 6   |
+
+      CIC Priority Malware 1Q25
+
+      **Threat insights**
+
+      From 1Q25 onwards, priority malware reporting differentiates between top ransomware variants and other forms of malware. This change in reporting is the reason why the below graph includes five rather than ten malware families. As a result, a like-for-like comparison with previous quarters is challenging.
+
+      - Regarding ransomware variants, 1Q25 saw the first reported sighting of the new LockBit 4.0 ransomware announced in December 2024. According to researchers, the new version enhanced its techniques related to stealth and adaptability. However, its operators continued to struggle to recover from recent law enforcement action, including the recent extradition of an alleged LockBit
+        developer to the US.
+      - Meanwhile, Cl0p continued to release names and details of victims, further cementing their campaign against organizations that utilized vulnerable Cleo MFT solutions.
+      - Among the remaining malwares, most are categorized as Loaders or Info Stealers.� Of note is AsyncRAT, which has been observed as part of recent ClickFix campaigns. ClickFix, a social engineering technique deceiving users into executing malicious commands through fake error messages, was first observed in October 2023 and saw significant adoption in late 2024.
+
+      **Threat outlook**
+
+      While certain types of malware may fluctuate in popularity or diminish following law enforcement operations, the fundamental demand for infostealers, loaders, and trojans is expected to remain constant. The composition of the most prevalent malware list is unlikely to undergo significant changes due to the integral role these malware play in the broader cybercrime ecosystem and their
+      continued utilization by cybercriminal actors.
+
+      �Loaders are designed to achieve an initial infection and then download additional malware payloads, while an Info Stealer is malware designed to gather information from a system.
+
+      | 1Q Rank | Ransomware   |
+      |---------|--------------|
+      | 1       | Lockbit      |
+      | 2       | Cl0p         |
+      | 3       | BianLian     |
+      | 4       | Qilin        |
+      | 5       | BlackBasta   |
+
+
+      ![Priority Malware by Category (excl. Ransomware)
+      ](image)
+
+      - Loader
+      - Info Stealer
+      - Trojan
+      - Loader, Trojan
+      - Info Stealer, Loader
+      - Info Stealer, Trojan
+
+      Industry Malware Trends 1Q25
+
+      Across the FS-ISAC community, the BeaverTail downloader and the InvisibleFerret backdoor were the most reported malwares in 1Q. Both are linked to North Korean threat actors and have been used in a campaign targeting tech industry job seekers. By contrast, regarding threats observed at the ACME Bank perimeter, SocGholish continues to top the list.
+      - Drive-by compromise attacks, where malicious content is delivered to unsuspecting users through compromised websites, remain a prevalent vector leveraged by threat actors to infiltrate systems.
+      - In contrast to the previous quarter, there is little overlap between the top FS-ISAC reported threats and those observed at the ACME Bank perimeter.
+
+      We expect that opportunistic threat actors will continue to target financial institutions. While the top observed malware families may change, malware loaders associated with initial access brokers, including those operating SocGholish/FakeUpdates campaigns, will very likely remain among the most reported across the sector.
+
+      | Top FS-ISAC Reported Threats |   |
+      |-----------------------------|---|
+      | BeaverTail                  | 20|
+      | InvisibleFerret             | 15|
+      | Cobalt Strike               | 10|
+      | OfficeGoblin                | 5 |
+      | Field Update                | 5 |
+      | LavoroBack                  | 5 |
+      | VSPY RAT                    | 5 |
+
+      | Top ACME Bank Observed Threats    |   |
+      |-----------------------------|---|
+      | SocGholish                  | 30|
+      | Spy                         | 15|
+      | BIMALANGER                  | 10|
+      | LNK                         | 10|
+      | CometStrike                 | 5 |
+      | Emotet                      | 5 |
+      | FAKEFERRET                  | 5 |
+
+      Data compiled from FS-ISAC member reporting over the past quarter. This chart represents the top seven threats shared within FS-ISAC in 1Q25. This data does not represent a holistic or exclusive representation of the threat activity but provides a comparative view between ACME Bank and Industry observed threat activity.
+
+      # High Priority TTPs
+
+      In 1Q25, Defense Evasion tactics remained the most significant high-priority TTPs, likely indicating a continued effort by threat actors to operate undetected. Threat hunts focused on all high priority techniques resulted in no observations across ACME Bank environment and no impact to the firm.
+      - **Command and Scripting Interpreter: PowerShell (T1059.001)** is a sub-technique that persisted between quarters. It has recently been associated with DarkGate and AsyncRAT, which are both tracked as CIC priority threats.
+      - **1Q25** displayed a less diverse set of techniques, falling under four tactics: Defense Evasion, Execution, Collection and Persistence. Several tactics reported on in 4Q24, namely Impact, Command and Control, Initial Access and Lateral Movement, were no longer part of high priority TTPs.
+
+      The high priority TTPs on the list are associated to one or more of the threat actors and malware on CIC's top threats list. Threat actors will continue to innovate and adapt new techniques and procedures to inherently evade detection. The makeup of the top TTP list is likely to shift as Living-Off-the-Land techniques are increasingly used to evade network defense, as evidenced by the consistently high count of Defense Evasion tactics among CIC high priority TTPs.
+
+      ## Priority TTPs by Tactics
+
+      | Tactic            | 4Q | 1Q |
+      |-------------------|----|----|
+      | Impact            | 1  | 0  |
+      | Execution         | 2  | 1  |
+      | Command and Control | 2  | 0  |
+      | Initial Access    | 1  | 0  |
+      | Defense Evasion   | 6  | 5  |
+      | Collection        | 2  | 1  |
+      | Lateral Movement  | 1  | 0  |
+      | Persistence       | 1  | 1  |
+
+      Data compiled from monthly High Priority TTPs assessments made by CIC over the past two quarters. High Priority TTPs are usually reported as 3 per month for a total of 9 per quarter. This chart represents the aggregate of the top MITRE Tactics reported in 4Q24 and 1Q25. This data does not represent a holistic or exclusive representation of observed threat activity but provides a comparative view between quarters regarding high risk TTPs.
+
+      # Vulnerability Exploitation Trends 1Q25
+
+      73 newly disclosed vulnerabilities were added to CISA's KEV catalogue in 1Q, showing a considerable increase over the last quarter. 41 of these were newly entered CVEs from previous years that had started to be abused by threat actors.
+      - 4 newly exploited vulnerabilities are known to have been used in ransomware operations in 1Q.�
+      - One MS Windows zero-day, ZDI-CAN-25373, exploited by at least 11 state-backed hacking groups from North Korea, Iran, Russia, and China since 2017 was not entered into the KEV, possibly since it has not been acknowledged yet by the vendor.� The flaw allows attackers to hide malicious commands within shortcut files (.lnk); TISO Cyber Defense teams confirmed detection coverage for malicious .lnk files abusing ZDI-CAN-25373.
+
+      Many more vulnerabilities were added to KEV in 1Q25 in comparison to 4Q24. However, this does not reflect exploitation in real time since there is often a time lag between actual exploitation and formal attribution (41 CVEs from previous years were newly added to the KEV). Microsoft was the most targeted system, accounting for more than 50% of CVEs reported in the quarter. This is in line with the increasing trend in Microsoft vulnerabilities according to BeyondTrust's 2024 annual report.
+
+      ## KEV by Quarter
+
+      ## KEV by Quarter
+      | Quarter   | Vulnerabilities |
+      |-----------|-----------------|
+      | 2024-Q1   | 20              |
+      | 2024-Q2   | 30              |
+      | 2024-Q3   | 40              |
+      | 2024-Q4   | 50              |
+      | 2025-Q1   | 73              |
+
+      Data taken primarily from US CISA's Known Exploited Vulnerabilities (KEV) database. These represent the number of vulnerabilities added to the database each quarter. These do not exclusively represent newly disclosed vulnerabilities and include previously known vulnerabilities that are newly exploited.
+
+      Two of these vulnerabilities involved Fortinet FortiOS and FortiProxy Authentication Bypass vulnerabilities, in infrastructure that is often Internet-facing.
+      Trend Micro researchers found evidence of nearly 100 Shell Link (.lnk) files and submitted evidence of exploitation to Microsoft who reportedly declined to acknowledge or patch the issue.
+
+      # Cyber Threat Landscape Dashboard April 2025
+      ## Cyber Threat Landscape Summary:
+      The month of April saw multiple notable incidents and developments across the threat landscape, including a breach at the US Office of the Comptroller of the Currency (OCC), state-sponsored threat actors being observed utilizing the "ClickKit" social engineering technique in espionage campaigns, and the US and China
+
+      - On 21 April 2025, Dutch payment firm Adyen faced a coordinated DDoS attack that temporarily disrupted payment services for many customers across Europe. The attack involved three waves generating millions of requests per minute from botnets targeting Adyen's payment services including commerce and In-Person Payment Transaction processing. No threat actors have been identified or
+      claimed responsibility.
+
+      | Monthly Trend | Threat Level |
+      |---------------|--------------|
+      | High          |              |
+
+      - **Hacking/Vulnerabilities:** On 8 April 2025, the US Office of the Comptroller of the Currency (OCC) disclosed a breach of email accounts belonging to its employees, executives, the breach detected internally, allowed unauthorized parties to access sensitive information, including financial records and internal communications. The intrusion began from an Office 365 phishing email
+      targeting the OCC's employees. The US Congress and the Department of Homeland Security's Cybersecurity and Infrastructure Security Agency (CISA) are working to determine the extent of the breach and its impact on the OCC's branches.
+      - On 3 April 2025, Vanta issued a critical advisory for a zero-day vulnerability in the widely used open-source software library Log4j, first discovered in March 2025. The vulnerability is a stack-based buffer overflow affecting versions 2.17.0 and earlier, allowing remote code execution. Vanta reported that a limited number of customers using the software were affected, and patches
+      were released to mitigate the risk. The Cybersecurity and Infrastructure Security Agency (CISA) further attributed the activity to UNC5221, a suspected Chinese state-sponsored group, and issued a joint advisory with US officials instructing organizations to patch by 10 April 2023.
+
+      | Monthly Trend | Threat Level |
+      |---------------|--------------|
+      | Medium        |              |
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             

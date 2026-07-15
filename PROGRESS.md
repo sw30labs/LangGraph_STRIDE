@@ -24,3 +24,12 @@
 - Subagent gate claim: two delegated attempts stalled before an implementation/gate result; the second copied only the approved public assets. The orchestrator decomposed and completed parser/graph/output plus CLI/tests directly under the Ralph escalation rule.
 - Orchestrator verified gate: PASS — Ruff format/lint, 18 tests, import smoke, vLLM persona e2e, and oMLX persona e2e.
 - Next: port the independent scenario workflow and its public assets.
+
+## Iteration 3 — CVE, CTI, and threat-scenario workflow
+
+- Item: port the scenario workflow and its public data/prompt assets.
+- Work: copied the current vulnerability, attack-template, controls-taxonomy, scenario-prompt, and scenario-template assets; added the eight-stage host-neutral LangGraph flow, required attack-template validation, corrected `Platform` handling with legacy fallback, deterministic QA approvals matching the source, report persistence, and the `scenario` CLI command.
+- Subagent gate claim: the delegated iteration copied approved assets but stalled before code or a gate result; the orchestrator completed the decomposed workflow/CLI/tests.
+- Orchestrator verified gate: PASS — Ruff format/lint, 22 tests, import smoke, vLLM persona e2e, and oMLX persona e2e.
+- Source-data note: the controls CSV contains 20 rows but 19 unique IDs; the source's dict construction intentionally keeps the 19 unique keys.
+- Next: wire the local web GUI to the canonical CLI commands.

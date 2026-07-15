@@ -10,6 +10,7 @@ import typer
 
 from src.config import AppConfig, PathConfig, build_inference_config
 from src.inference_client import client_from_config
+from src.scenario import ScenarioWorkflow
 from src.threat_model import ThreatModelWorkflow
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
@@ -101,6 +102,36 @@ def threat_model(
         ),
     )
     path = ThreatModelWorkflow(config).run(aa_id)
+    typer.echo(path)
+
+
+@app.command()
+def scenario(
+    json_file: Annotated[Path, typer.Option("--json-file", exists=True, dir_okay=False)],
+    attack_template: Annotated[str, typer.Option("--attack-template")],
+    backend: BackendOption = None,
+    inference_url: UrlOption = None,
+    inference_model: ModelOption = None,
+    inference_api_key: KeyOption = None,
+    min_cvss: Annotated[float, typer.Option("--min-cvss", min=0, max=10)] = 8.5,
+    db_path: Annotated[str, typer.Option("--db-path")] = "cve_database.db",
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+    prompts_dir: Annotated[Path | None, typer.Option("--prompts-dir")] = None,
+    output_dir: Annotated[Path | None, typer.Option("--output-dir")] = None,
+) -> None:
+    """Generate CVE, CTI, and threat-scenario reports from a threat model."""
+    defaults = PathConfig()
+    config = AppConfig(
+        inference=_inference(backend, inference_url, inference_api_key, inference_model),
+        paths=PathConfig(
+            data_dir=data_dir or defaults.data_dir,
+            prompts_dir=prompts_dir or defaults.prompts_dir,
+            output_dir=output_dir or defaults.output_dir,
+        ),
+    )
+    path = ScenarioWorkflow(config).run(
+        json_file, attack_template, min_cvss=min_cvss, db_path=db_path
+    )
     typer.echo(path)
 
 
