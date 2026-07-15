@@ -8,3 +8,11 @@
 - Source tests: none.
 - Gate status: not yet materialized; Phase 2 scaffold is next.
 
+## Iteration 1 — dual-platform scaffold and inference seam
+
+- Item: scaffold the package and implement the neutral OpenAI-compatible client.
+- Work: added PEP 621 metadata, platform-aware Pydantic config, vLLM/oMLX/OpenAI client, Typer `info`/`models`/`smoke-inference` commands, bundled mock server, contract runner, bounded Compose service, both launchers, and the required documentation skeleton.
+- Dependency note: installing `.[dev]` in the isolated Python 3.11 environment supplied `python-dotenv`, LangGraph, Prometheus, and transitive runtime packages.
+- Subagent gate claim: not applicable; Phase 2 was orchestrator-owned.
+- Orchestrator verified gate: PASS — Ruff format/lint, 13 tests, import smoke, vLLM persona e2e, and oMLX persona e2e.
+- Next: begin fresh-agent Ralph iterations with the threat-model workflow.

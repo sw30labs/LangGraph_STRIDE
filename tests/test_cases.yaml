@@ -1,0 +1,17 @@
+pipeline: langgraph-stride
+inputs:
+  cmdb: data/cmdb.json
+  vulnerabilities: data/demo_critical_vulnerability.json
+platform_defaults:
+  - match: {system: Linux, machine: aarch64}
+    expected: {backend: vllm, device: cuda, concurrency: 2}
+  - match: {system: Darwin, machine: arm64}
+    expected: {backend: omlx, device: mps, concurrency: 4}
+  - match: {system: other, machine: other}
+    expected: {backend: omlx, device: cpu, concurrency: 4}
+scenarios:
+  - name: vllm-contract
+    command: python tests/run_contract_e2e.py --persona vllm
+  - name: omlx-contract
+    command: python tests/run_contract_e2e.py --persona omlx
+
