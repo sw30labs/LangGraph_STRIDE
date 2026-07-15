@@ -79,4 +79,5 @@
 - Review verdict: FAIL with three findings — environment metrics were suppressed by an explicit CLI `None`, device/concurrency lacked runtime and direct-command wiring, and a 2xx non-JSON `/tokenize` response bypassed the intended fallback.
 - Fixes: preserved `WorkflowConfig`'s environment default when the flag is absent; added `--device` and `--batch-size`/`--concurrency` across inference and workflow commands; used concurrency for the HTTP connection pool and device for request observability; made tokenizer JSON decode failures fall back to a server-managed completion budget.
 - Orchestrator gate: PASS — Ruff format/lint, 39 tests, import smoke, vLLM persona e2e, and oMLX persona e2e.
+- Focused seam re-review: PASS at `46fc544`; all three findings have regression coverage.
 - Next: independent clean-clone verification.
