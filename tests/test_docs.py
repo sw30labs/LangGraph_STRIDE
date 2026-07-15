@@ -26,3 +26,11 @@ def test_machine_readable_scenarios_cover_platforms_and_personas():
     commands = [row["command"] for row in cases["automated_scenarios"]]
     assert any("--persona vllm" in command for command in commands)
     assert any("--persona omlx" in command for command in commands)
+
+
+def test_runtime_assets_are_declared_as_package_data():
+    metadata = (ROOT / "pyproject.toml").read_text()
+    assert '"data/*"' in metadata
+    assert '"prompts/*"' in metadata
+    assert (ROOT / "src" / "data" / "cmdb.json").is_file()
+    assert (ROOT / "src" / "prompts" / "stride_prompts.yml").is_file()

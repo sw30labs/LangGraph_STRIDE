@@ -1,9 +1,9 @@
 pipeline: langgraph-stride
 inputs:
-  cmdb: data/cmdb.json
-  vulnerabilities: data/demo_critical_vulnerability.json
-  attack_templates: data/predefined_attack_templates.json
-  controls: data/control_taxonomy.csv
+  cmdb: src/data/cmdb.json
+  vulnerabilities: src/data/demo_critical_vulnerability.json
+  attack_templates: src/data/predefined_attack_templates.json
+  controls: src/data/control_taxonomy.csv
 platform_defaults:
   - match: {system: Linux, machine: aarch64}
     expected: {backend: vllm, device: cuda, concurrency: 2}
@@ -30,4 +30,3 @@ live_scenarios:
       python -m src.cli scenario
       --json-file output/stride/security_assessment_AA123456_TIMESTAMP.json
       --attack-template "Zero-Day Exploit [New]"
-

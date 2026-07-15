@@ -44,20 +44,22 @@ def config(tmp_path):
     return AppConfig(
         inference=build_inference_config("omlx"),
         paths=PathConfig(
-            data_dir=ROOT / "data",
-            prompts_dir=ROOT / "prompts",
+            data_dir=ROOT / "src" / "data",
+            prompts_dir=ROOT / "src" / "prompts",
             output_dir=tmp_path / "output",
         ),
     )
 
 
 def test_public_scenario_assets_are_complete():
-    templates = json.loads((ROOT / "data" / "predefined_attack_templates.json").read_text())
-    vulnerabilities = json.loads((ROOT / "data" / "demo_critical_vulnerability.json").read_text())
+    templates = json.loads((ROOT / "src" / "data" / "predefined_attack_templates.json").read_text())
+    vulnerabilities = json.loads(
+        (ROOT / "src" / "data" / "demo_critical_vulnerability.json").read_text()
+    )
     assert len(templates) == 27
     assert len(vulnerabilities) == 1
     # The source contains 20 rows and 19 unique IDs; its dict loader keeps the latter.
-    assert len(load_controls(ROOT / "data" / "control_taxonomy.csv")) == 19
+    assert len(load_controls(ROOT / "src" / "data" / "control_taxonomy.csv")) == 19
 
 
 def test_workflow_generates_all_reports_and_uses_platform_field(tmp_path):

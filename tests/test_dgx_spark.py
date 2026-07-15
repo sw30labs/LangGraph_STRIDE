@@ -30,6 +30,10 @@ def test_dgx_helper_exposes_required_commands():
     assert 'TORCHVISION_VERSION="0.26.0+cu130"' in text
     assert "VLLM_MAX_MODEL_LEN" in text
     assert "local_container_id" in text
+    assert "is_python_312" in text
+    assert "nvidia-smi -L" in text
+    assert "docker --version" in text
+    assert "docker compose version --short" in text
 
 
 def test_macos_helper_preserves_env_and_defaults_to_web_console():

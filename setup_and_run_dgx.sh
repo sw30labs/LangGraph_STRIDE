@@ -57,6 +57,10 @@ readonly TORCH_INDEX_URL="${PYTORCH_DGX_INDEX_URL:-https://download.pytorch.org/
 log() { printf '[langgraph-stride] %s\n' "$*"; }
 die() { printf '[langgraph-stride] error: %s\n' "$*" >&2; exit 1; }
 
+is_python_312() {
+    "$1" -c 'import sys; raise SystemExit(sys.version_info[:2] != (3, 12))'
+}
+
 usage() {
     printf '%s\n' \
         'Usage: ./setup_and_run_dgx.sh COMMAND [ARGS...]' \
@@ -117,10 +121,20 @@ local_container_running() { [[ -n "$(compose_control ps --status running -q llm 
 cmd_doctor() {
     [[ "$(uname -s)" == "Linux" ]] || die 'DGX Spark requires Linux.'
     case "$(uname -m)" in aarch64|arm64) ;; *) die 'DGX Spark requires ARM64.' ;; esac
+    log "host: $(uname -s) $(uname -m)"
+    command -v "${PYTHON_BIN}" >/dev/null || die 'Python 3.12 is required.'
+    is_python_312 "${PYTHON_BIN}" || die 'DGX Spark requires Python 3.12 exactly.'
+    log "python: $("${PYTHON_BIN}" --version 2>&1)"
     command -v docker >/dev/null || die 'Docker is required.'
     docker compose version >/dev/null || die 'Docker Compose is required.'
     command -v nvidia-smi >/dev/null || die 'NVIDIA runtime is not visible.'
+    local gpu_listing
+    gpu_listing="$(nvidia-smi -L)" || die 'nvidia-smi could not query the GPU.'
+    [[ "${gpu_listing}" == *GB10* ]] || die 'Expected an NVIDIA GB10 GPU for DGX Spark.'
+    log "gpu: ${gpu_listing}"
     docker info >/dev/null || die 'Docker is not accessible.'
+    log "docker: $(docker --version)"
+    log "compose: $(docker compose version --short 2>/dev/null || docker compose version)"
     if endpoint_has_model; then
         log "Exact model/context service is reusable at ${VLLM_BASE_URL}."
     elif endpoint_answers; then
@@ -133,8 +147,7 @@ cmd_doctor() {
 
 cmd_setup() {
     command -v "${PYTHON_BIN}" >/dev/null || die 'Python 3.12 is required.'
-    "${PYTHON_BIN}" -c 'import sys; raise SystemExit(sys.version_info[:2] != (3, 12))' || \
-        die 'DGX setup requires Python 3.12 exactly.'
+    is_python_312 "${PYTHON_BIN}" || die 'DGX setup requires Python 3.12 exactly.'
     [[ -x "${VENV_DIR}/bin/python" ]] || "${PYTHON_BIN}" -m venv "${VENV_DIR}"
     "${VENV_DIR}/bin/python" -m pip install --upgrade pip
     "${VENV_DIR}/bin/python" -m pip install --index-url "${TORCH_INDEX_URL}" \

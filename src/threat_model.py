@@ -132,8 +132,12 @@ class ThreatModelWorkflow:
     def _qa_stride(self, state: ThreatModelState) -> ThreatModelState:
         template = self.prompts["qa_stride"]["human_template"]
         prompt = template.replace("{{stride_output}}", json.dumps(state["stride_data"], indent=2))
+        try:
+            feedback = parse_json_object(self._ask(prompt))
+        except Exception as exc:
+            feedback = {"pass": False, "error": str(exc)}
         return {
-            "stride_feedback": parse_json_object(self._ask(prompt)),
+            "stride_feedback": feedback,
             "stride_iterations": state.get("stride_iterations", 0) + 1,
         }
 
@@ -162,8 +166,12 @@ class ThreatModelWorkflow:
     def _qa_dread(self, state: ThreatModelState) -> ThreatModelState:
         template = self.prompts["qa_dread"]["human_template"]
         prompt = template.replace("{{dread_output}}", json.dumps(state["dread_data"], indent=2))
+        try:
+            feedback = parse_json_object(self._ask(prompt))
+        except Exception as exc:
+            feedback = {"pass": False, "error": str(exc)}
         return {
-            "dread_feedback": parse_json_object(self._ask(prompt)),
+            "dread_feedback": feedback,
             "dread_iterations": state.get("dread_iterations", 0) + 1,
         }
 
@@ -185,7 +193,7 @@ class ThreatModelWorkflow:
         prompt = template.replace("{{threat_model}}", json.dumps(model, indent=2))
         try:
             final_model = parse_json_object(self._ask(prompt))
-        except ValueError:
+        except Exception:
             final_model = model
         return {
             "final_model": final_model,

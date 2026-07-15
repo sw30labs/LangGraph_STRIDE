@@ -1,10 +1,12 @@
 import httpx
 import pytest
 
-from src.config import InferenceBackend
+from src.config import InferenceBackend, build_inference_config
 from src.inference_client import (
     InferenceTruncatedError,
     OpenAICompatibleClient,
+    _cached_client,
+    client_from_config,
     normalize_base_url,
     strip_thinking,
 )
@@ -105,3 +107,21 @@ def test_vllm_context_error_retries_without_reservation_when_tokenize_is_absent(
         "/tokenize",
         "/v1/chat/completions",
     ]
+
+
+def test_client_cache_reuses_identity_and_separates_personas():
+    _cached_client.cache_clear()
+    vllm = build_inference_config("vllm", base_url="http://127.0.0.1:18001/v1", model="vllm-test")
+    omlx = build_inference_config("omlx", base_url="http://127.0.0.1:18002/v1", model="omlx-test")
+    first = client_from_config(vllm)
+    assert client_from_config(vllm) is first
+    second = client_from_config(omlx)
+    assert second is not first
+    assert (first.backend.value, first.base_url, first.model) != (
+        second.backend.value,
+        second.base_url,
+        second.model,
+    )
+    first.close()
+    second.close()
+    _cached_client.cache_clear()

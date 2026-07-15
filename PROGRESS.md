@@ -81,3 +81,9 @@
 - Orchestrator gate: PASS — Ruff format/lint, 39 tests, import smoke, vLLM persona e2e, and oMLX persona e2e.
 - Focused seam re-review: PASS at `46fc544`; all three findings have regression coverage.
 - Next: independent clean-clone verification.
+
+## Iteration 10 — independent-verifier findings
+
+- Independent clean-clone verdict: FAIL with four findings — QA transport errors escaped the source-style retry/fallback path, the client cache lacked focused tests, runtime data/prompts were missing from built wheels, and DGX doctor did not execute or report every prerequisite claimed by the docs.
+- Fixes: made STRIDE/DREAD QA errors enter the bounded retry loop and final-QA errors retain the assembled report; added cache identity/persona regression coverage; relocated public assets into package data with workspace-local output defaults; and made DGX doctor validate Python 3.12, query the GB10 GPU, and report host, Python, Docker, and Compose versions.
+- Next: run the complete gate, verify a built wheel, and repeat independent clean-clone verification.

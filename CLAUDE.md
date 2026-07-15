@@ -22,7 +22,7 @@ python tests/run_contract_e2e.py --persona vllm
 python tests/run_contract_e2e.py --persona omlx
 ```
 
-Data layout: tracked public fixtures are under `data/` and `prompts/`; generated assessments, feedback, and scenarios are under gitignored `output/`; runtime logs, `.env`, virtual environments, and model caches are also gitignored.
+Data layout: tracked public fixtures are packaged under `src/data/` and `src/prompts/`; generated assessments, feedback, and scenarios are written below the current workspace's gitignored `output/`; runtime logs, `.env`, virtual environments, and model caches are also gitignored.
 
 Things to watch for: DGX concurrency stays at two; root and dashboard endpoint URLs normalize to `/v1`; complete reports raise on token-limit truncation; prompt JSON must use the tolerant parser; port 8000 belongs to inference, so optional metrics must use another port; the source controls CSV has 20 rows but 19 unique IDs; shell exports take precedence over `.env`; `llm-down` must never stop an externally owned service.
 

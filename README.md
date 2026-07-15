@@ -133,11 +133,11 @@ The retained `--db-path` scenario option is compatible with the source CLI but r
 
 ## Inputs and outputs
 
-- `data/cmdb.json`: three public sample application records.
-- `data/predefined_attack_templates.json`: 27 MITRE ATT&CK-oriented templates.
-- `data/demo_critical_vulnerability.json`: deterministic CVE input.
-- `data/control_taxonomy.csv`: 20 source rows / 19 unique control IDs.
-- `prompts/`: current STRIDE, DREAD, QA, CVE, CTI, and scenario prompt assets.
+- `src/data/cmdb.json`: three public sample application records.
+- `src/data/predefined_attack_templates.json`: 27 MITRE ATT&CK-oriented templates.
+- `src/data/demo_critical_vulnerability.json`: deterministic CVE input.
+- `src/data/control_taxonomy.csv`: 20 source rows / 19 unique control IDs.
+- `src/prompts/`: current STRIDE, DREAD, QA, CVE, CTI, and scenario prompt assets.
 - `output/stride/`: timestamped security assessments.
 - `output/feedback/`: STRIDE, DREAD, and final-QA decisions.
 - `output/scenarios/`: dated combined scenario reports.
@@ -148,10 +148,10 @@ The retained `--db-path` scenario option is compatible with the source CLI but r
 
 ```text
 .
-├── src/                  # flat Python package and packaged web assets
+├── src/                  # Python package, runtime data/prompts, and web assets
+│   ├── data/             # public sample inputs
+│   └── prompts/          # source-derived prompts and report templates
 ├── tests/                # unit, platform, GUI, and dual-persona contract tests
-├── data/                 # public sample inputs
-├── prompts/              # source-derived YAML prompts and report templates
 ├── docs/DGX_SPARK.md
 ├── compose.dgx-spark.yaml
 ├── setup_and_run_dgx.sh

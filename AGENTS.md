@@ -7,7 +7,7 @@
 - `src/threat_model.py` owns STRIDE/DREAD/QA/output behavior.
 - `src/scenario.py` owns CVE/CTI/scenario/report behavior.
 - `src/gui.py` owns the local HTTP API and background jobs; `src/web/` is static UI only.
-- `data/` and `prompts/` are public, source-derived fixtures. Generated reports belong under gitignored `output/`.
+- `src/data/` and `src/prompts/` are packaged, public, source-derived fixtures. Generated reports belong under gitignored `output/`.
 
 Platform detection changes defaults, not code paths. Never add Darwin/Linux branches to workflow, GUI, or inference business logic.
 
@@ -29,4 +29,3 @@ Use four spaces, lowercase-underscore modules, `CamelCase` classes, useful type 
 Keep changes surgical. Update README and DGX documentation in the same commit when command, config, service, or output behavior changes. Use scoped Conventional Commits such as `feat(workflow): ...`, `fix(config): ...`, `test(gui): ...`, or `docs(readme): ...`.
 
 Never read, copy, overwrite, or commit `.env`; never commit caches or generated reports; never stop an OpenAI-compatible service owned by another stack. The DGX helper may reuse an exact external model/context service but may manage only its own Compose container.
-

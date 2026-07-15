@@ -10,7 +10,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PACKAGE_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = PACKAGE_ROOT.parent
 DEFAULT_VLLM_MODEL = "nvidia/Qwen3.6-27B-NVFP4"
 DEFAULT_CONTEXT_SIZE = 32_768
 
@@ -173,10 +174,10 @@ def build_inference_config(
 
 
 class PathConfig(BaseModel):
-    project_root: Path = PROJECT_ROOT
-    data_dir: Path = PROJECT_ROOT / "data"
-    prompts_dir: Path = PROJECT_ROOT / "prompts"
-    output_dir: Path = PROJECT_ROOT / "output"
+    project_root: Path = Field(default_factory=Path.cwd)
+    data_dir: Path = PACKAGE_ROOT / "data"
+    prompts_dir: Path = PACKAGE_ROOT / "prompts"
+    output_dir: Path = Field(default_factory=lambda: Path.cwd() / "output")
 
 
 def default_metrics_port() -> int | None:

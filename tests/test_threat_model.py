@@ -22,7 +22,10 @@ class FakeClient:
 
     def chat(self, messages, **kwargs):
         self.prompts.append(messages[-1]["content"])
-        return next(self.responses)
+        response = next(self.responses)
+        if isinstance(response, Exception):
+            raise response
+        return response
 
 
 def stride_payload():
@@ -46,10 +49,10 @@ def test_parse_stride_response_matches_categories_case_insensitively():
 
 
 def test_load_cmdb_entry_and_missing_id():
-    entry = load_cmdb_entry(ROOT / "data", "AA123456")
+    entry = load_cmdb_entry(ROOT / "src" / "data", "AA123456")
     assert entry["AA ID"] == "AA123456"
     with pytest.raises(ValueError, match="No CMDB entry"):
-        load_cmdb_entry(ROOT / "data", "missing")
+        load_cmdb_entry(ROOT / "src" / "data", "missing")
 
 
 def test_workflow_writes_model_and_feedback(tmp_path):
@@ -66,8 +69,8 @@ def test_workflow_writes_model_and_feedback(tmp_path):
     config = AppConfig(
         inference=build_inference_config("omlx"),
         paths=PathConfig(
-            data_dir=ROOT / "data",
-            prompts_dir=ROOT / "prompts",
+            data_dir=ROOT / "src" / "data",
+            prompts_dir=ROOT / "src" / "prompts",
             output_dir=tmp_path / "output",
         ),
     )
@@ -93,10 +96,63 @@ def test_stride_qa_retries_until_pass(tmp_path):
     config = AppConfig(
         inference=build_inference_config("omlx"),
         paths=PathConfig(
-            data_dir=ROOT / "data",
-            prompts_dir=ROOT / "prompts",
+            data_dir=ROOT / "src" / "data",
+            prompts_dir=ROOT / "src" / "prompts",
             output_dir=tmp_path,
         ),
     )
     ThreatModelWorkflow(config, client=client).run("AA123456")
     assert "QA Feedback" in client.prompts[2]
+
+
+def test_stride_qa_inference_error_enters_retry_loop(tmp_path):
+    client = FakeClient(
+        [
+            json.dumps(stride_payload()),
+            RuntimeError("temporary QA failure"),
+            json.dumps(stride_payload()),
+            '{"pass": true}',
+            '{"Risk Assessment": []}',
+            '{"pass": true}',
+            '{"complete": true}',
+        ]
+    )
+    workflow = ThreatModelWorkflow(
+        AppConfig(
+            inference=build_inference_config("omlx"),
+            paths=PathConfig(
+                data_dir=ROOT / "src" / "data",
+                prompts_dir=ROOT / "src" / "prompts",
+                output_dir=tmp_path,
+            ),
+        ),
+        client=client,
+    )
+    workflow.run("AA123456")
+    assert "temporary QA failure" in client.prompts[2]
+
+
+def test_final_qa_transport_error_falls_back_to_assembled_model(tmp_path):
+    client = FakeClient(
+        [
+            json.dumps(stride_payload()),
+            '{"pass": true}',
+            '{"Risk Assessment": []}',
+            '{"pass": true}',
+            RuntimeError("final QA unavailable"),
+        ]
+    )
+    workflow = ThreatModelWorkflow(
+        AppConfig(
+            inference=build_inference_config("omlx"),
+            paths=PathConfig(
+                data_dir=ROOT / "src" / "data",
+                prompts_dir=ROOT / "src" / "prompts",
+                output_dir=tmp_path,
+            ),
+        ),
+        client=client,
+    )
+    report = json.loads(workflow.run("AA123456").read_text())
+    assert report["system_metadata"]["aa_id"] == "AA123456"
+    assert "dread_assessment" in report

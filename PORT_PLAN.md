@@ -106,4 +106,4 @@ Target tests must cover config, inference, prompt/data loaders, both workflows, 
 6. Generated logs and reports are runtime artifacts, not source fixtures. The current sample data and prompt files are source fixtures and will be preserved.
 7. Core quickstart verification uses `info`, `models`, and a real seam-level `smoke-inference` command against the bundled mock server. Full domain workflows require structured model output and are tested with deterministic response fixtures.
 8. The bundled Ultraport contract outranks drift in the live ScreenLens exemplar for Ruff, the other-host test, import smoke, and dual-persona e2e. Live ScreenLens hardening patterns outrank the distilled examples for URL cleanup, proxy bypass, `max_tokens >= context` omission, and service ownership.
-
+9. Target runtime fixtures live under `src/data/` and `src/prompts/` so wheel installs preserve the source assets; generated output remains workspace-local.

@@ -26,7 +26,7 @@ langgraph-stride = "src.cli:app"
 packages = ["src"]
 
 [tool.setuptools.package-data]
-src = ["web/*"]
+src = ["data/*", "prompts/*", "web/*"]
 
 [tool.ruff]
 target-version = "py311"
