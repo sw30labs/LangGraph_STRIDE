@@ -2,6 +2,8 @@ pipeline: langgraph-stride
 inputs:
   cmdb: data/cmdb.json
   vulnerabilities: data/demo_critical_vulnerability.json
+  attack_templates: data/predefined_attack_templates.json
+  controls: data/control_taxonomy.csv
 platform_defaults:
   - match: {system: Linux, machine: aarch64}
     expected: {backend: vllm, device: cuda, concurrency: 2}
@@ -9,9 +11,23 @@ platform_defaults:
     expected: {backend: omlx, device: mps, concurrency: 4}
   - match: {system: other, machine: other}
     expected: {backend: omlx, device: cpu, concurrency: 4}
-scenarios:
+automated_scenarios:
+  - name: full-unit-and-platform-gate
+    command: python -m pytest tests/ -q
   - name: vllm-contract
     command: python tests/run_contract_e2e.py --persona vllm
   - name: omlx-contract
     command: python tests/run_contract_e2e.py --persona omlx
+live_scenarios:
+  - name: dgx-spark-inference
+    command: ./setup_and_run_dgx.sh smoke
+  - name: apple-omlx-inference
+    command: ./setup_and_run_macos.sh smoke-inference
+  - name: sample-threat-model
+    command: python -m src.cli threat-model AA123456
+  - name: sample-scenario
+    command: >-
+      python -m src.cli scenario
+      --json-file output/stride/security_assessment_AA123456_TIMESTAMP.json
+      --attack-template "Zero-Day Exploit [New]"
 

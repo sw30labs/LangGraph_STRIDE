@@ -57,3 +57,11 @@
 - Subagent gate claim: the delegated iteration tightened Compose scalar quoting but stalled before launcher completion.
 - Orchestrator verified gate: PASS — Bash syntax, Ruff format/lint, 31 tests, import smoke, vLLM persona e2e, and oMLX persona e2e.
 - Next: reconcile all documentation and environment/test matrices with the implemented application.
+
+## Iteration 7 — documentation and machine-readable scenarios
+
+- Item: reconcile the full documentation set with the completed port.
+- Work: replaced scaffold-era README text with complete install, configuration, command, input/output, structure, verification, and roadmap sections; expanded agent and architecture guidance; documented DGX service ownership, pinned CUDA setup, command lifecycle, sizing, and troubleshooting; expanded the test-case matrix with all three platform defaults, both persona contracts, live smokes, and domain examples; added documentation consistency tests. The Karpathy clause remains verbatim.
+- Subagent gate claim: the delegated documentation iteration stalled before edits or a result.
+- Orchestrator verified gate: PASS — Ruff format/lint, 34 tests, import smoke, vLLM persona e2e, and oMLX persona e2e.
+- Next: harden the complete repository and run independent clean-clone verification.
