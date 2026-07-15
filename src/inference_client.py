@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import re
+import warnings
 from functools import lru_cache
 from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
-from src.config import InferenceBackend, InferenceConfig
+from src.config import InferenceBackend, InferenceConfig, parse_backend
 
 
 class InferenceTruncatedError(RuntimeError):
@@ -67,7 +68,7 @@ class OpenAICompatibleClient:
         context_size: int,
         timeout: float = 120.0,
     ) -> OpenAICompatibleClient:
-        selected = backend if isinstance(backend, InferenceBackend) else InferenceBackend(backend)
+        selected = parse_backend(backend)
         return cls(
             backend=selected,
             base_url=base_url,
@@ -104,17 +105,89 @@ class OpenAICompatibleClient:
         if disable_thinking:
             payload["chat_template_kwargs"] = {"enable_thinking": False}
 
-        response = self._http.post(f"{self.base_url}/chat/completions", json=payload)
-        response.raise_for_status()
-        body = response.json()
+        body = self._post_chat(payload)
         choices = body.get("choices") or []
         if not choices:
             raise RuntimeError("Inference response did not include a choice")
         choice = choices[0]
         content = str((choice.get("message") or {}).get("content") or "")
-        if choice.get("finish_reason") == "length" and require_complete:
-            raise InferenceTruncatedError("Inference response was truncated at the token limit")
+        if choice.get("finish_reason") == "length":
+            if require_complete:
+                raise InferenceTruncatedError("Inference response was truncated at the token limit")
+            warnings.warn(
+                "Inference response ended at the token limit and may be incomplete",
+                RuntimeWarning,
+                stacklevel=2,
+            )
         return strip_thinking(content)
+
+    def _tokenize_url(self) -> str:
+        parsed = urlsplit(self.base_url)
+        path = parsed.path.rstrip("/")
+        if path.endswith("/v1"):
+            path = path[:-3]
+        return urlunsplit((parsed.scheme, parsed.netloc, f"{path}/tokenize", "", ""))
+
+    def _tokenize_chat(self, payload: dict[str, object]) -> tuple[int, int] | None:
+        token_payload = {
+            key: payload[key]
+            for key in ("model", "messages", "chat_template_kwargs")
+            if key in payload
+        }
+        response = self._http.post(self._tokenize_url(), json=token_payload)
+        if response.status_code >= 400:
+            return None
+        body = response.json()
+        try:
+            return int(body["count"]), int(body["max_model_len"])
+        except (KeyError, TypeError, ValueError):
+            return None
+
+    def _context_retry_payload(
+        self, payload: dict[str, object], response: httpx.Response
+    ) -> dict[str, object] | None:
+        if self.backend is not InferenceBackend.vllm or response.status_code != 400:
+            return None
+        try:
+            error = response.json().get("error", {})
+        except ValueError:
+            return None
+        if not isinstance(error, dict):
+            return None
+        message = str(error.get("message", "")).lower()
+        if error.get("param") not in {"max_tokens", "max_completion_tokens"}:
+            return None
+        if "maximum context length" not in message:
+            return None
+        requested = payload.get("max_tokens")
+        if not isinstance(requested, int):
+            return None
+
+        retry = dict(payload)
+        tokenized = self._tokenize_chat(payload)
+        if tokenized is None:
+            retry.pop("max_tokens", None)
+            return retry
+        prompt_tokens, served_context = tokenized
+        available = served_context - prompt_tokens
+        if available <= 0:
+            raise RuntimeError(
+                f"vLLM prompt uses {prompt_tokens} tokens, exceeding its "
+                f"{served_context}-token context before generation"
+            )
+        retry["max_tokens"] = min(requested, available)
+        return retry if retry["max_tokens"] < requested else None
+
+    def _post_chat(self, payload: dict[str, object]) -> dict[str, object]:
+        response = self._http.post(f"{self.base_url}/chat/completions", json=payload)
+        retry = self._context_retry_payload(payload, response)
+        if retry is not None:
+            response = self._http.post(f"{self.base_url}/chat/completions", json=retry)
+        response.raise_for_status()
+        body = response.json()
+        if not isinstance(body, dict):
+            raise RuntimeError("Inference response was not a JSON object")
+        return body
 
 
 @lru_cache(maxsize=16)

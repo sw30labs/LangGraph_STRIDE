@@ -7,8 +7,9 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+from prometheus_client import start_http_server
 
-from src.config import AppConfig, PathConfig, build_inference_config
+from src.config import AppConfig, PathConfig, WorkflowConfig, build_inference_config
 from src.inference_client import client_from_config
 from src.scenario import ScenarioWorkflow
 from src.threat_model import ThreatModelWorkflow
@@ -91,6 +92,7 @@ def threat_model(
     data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
     prompts_dir: Annotated[Path | None, typer.Option("--prompts-dir")] = None,
     output_dir: Annotated[Path | None, typer.Option("--output-dir")] = None,
+    metrics_port: Annotated[int | None, typer.Option("--metrics-port", min=1, max=65_535)] = None,
 ) -> None:
     """Generate a STRIDE model and DREAD assessment for one application."""
     config = AppConfig(
@@ -100,7 +102,10 @@ def threat_model(
             prompts_dir=prompts_dir or PathConfig().prompts_dir,
             output_dir=output_dir or PathConfig().output_dir,
         ),
+        workflow=WorkflowConfig(metrics_port=metrics_port),
     )
+    if config.workflow.metrics_port is not None:
+        start_http_server(config.workflow.metrics_port)
     path = ThreatModelWorkflow(config).run(aa_id)
     typer.echo(path)
 

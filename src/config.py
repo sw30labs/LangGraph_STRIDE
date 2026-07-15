@@ -175,12 +175,22 @@ class PathConfig(BaseModel):
     data_dir: Path = PROJECT_ROOT / "data"
     prompts_dir: Path = PROJECT_ROOT / "prompts"
     output_dir: Path = PROJECT_ROOT / "output"
-    logs_dir: Path = PROJECT_ROOT / "logs"
+
+
+def default_metrics_port() -> int | None:
+    configured = os.getenv("STRIDE_METRICS_PORT")
+    if not configured:
+        return None
+    try:
+        port = int(configured)
+    except ValueError:
+        return None
+    return port if 1 <= port <= 65_535 else None
 
 
 class WorkflowConfig(BaseModel):
     qa_attempts: int = Field(default=3, ge=1)
-    metrics_port: int | None = None
+    metrics_port: int | None = Field(default_factory=default_metrics_port, ge=1, le=65_535)
 
 
 class AppConfig(BaseModel):

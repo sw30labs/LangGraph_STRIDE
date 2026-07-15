@@ -69,7 +69,6 @@ def test_workflow_writes_model_and_feedback(tmp_path):
             data_dir=ROOT / "data",
             prompts_dir=ROOT / "prompts",
             output_dir=tmp_path / "output",
-            logs_dir=tmp_path / "logs",
         ),
     )
     path = ThreatModelWorkflow(config, client=client).run("AA123456")

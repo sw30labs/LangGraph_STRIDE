@@ -65,3 +65,11 @@
 - Subagent gate claim: the delegated documentation iteration stalled before edits or a result.
 - Orchestrator verified gate: PASS — Ruff format/lint, 34 tests, import smoke, vLLM persona e2e, and oMLX persona e2e.
 - Next: harden the complete repository and run independent clean-clone verification.
+
+## Iteration 8 — pre-verifier hardening
+
+- Item: audit unused configuration/dependencies, inference edge cases, and source preservation.
+- Work: made the source Prometheus feature explicit and opt-in through `STRIDE_METRICS_PORT`/`--metrics-port`, removed the unused log-path option, added non-fatal truncation warnings, accepted the `mlx` alias in direct client construction, and implemented one structured vLLM context-error retry using `/tokenize` when available or server-managed remaining context otherwise.
+- Source verification: HEAD, dirty-status digest, and all-file digest exactly match the Phase 0 baseline.
+- Orchestrator verified gate: PASS — Ruff format/lint, 38 tests, import smoke, vLLM persona e2e, and oMLX persona e2e.
+- Next: focused seam review, then independent clean-clone verification.

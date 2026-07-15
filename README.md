@@ -97,6 +97,7 @@ Shell exports win over `.env`. Root or dashboard endpoint URLs are normalized to
 | `STRIDE_CONCURRENCY` | Workflow concurrency default; Spark stays at two |
 | `STRIDE_CONTEXT_SIZE`, `STRIDE_MAX_TOKENS` | Served context and requested-output ceiling |
 | `STRIDE_ENABLE_THINKING` | Set `1` only when reasoning output is wanted; thinking tags are still stripped |
+| `STRIDE_METRICS_PORT` | Optional Prometheus endpoint for a `threat-model` run; unset by default |
 | `VLLM_BASE_URL`, `VLLM_API_KEY`, `VLLM_MODEL` | DGX/vLLM persona; local key defaults to `local` |
 | `VLLM_MAX_MODEL_LEN` | Compose ceiling and exact-service readiness requirement |
 | `MLX_BASE_URL`, `MLX_API_KEY`, `MLX_MODEL` | Apple/oMLX persona; `OMLX_*` aliases are accepted |
@@ -171,4 +172,3 @@ The gate checks Ruff formatting/lint, the full pytest suite, a CLI import smoke,
 
 - Connect the retained `--db-path` option to a real CVE database behind a tested data seam.
 - Add CI runners for Linux/x86 portability plus scheduled on-hardware DGX Spark and Apple Silicon smoke checks.
-

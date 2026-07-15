@@ -63,3 +63,45 @@ def test_chat_raises_when_complete_output_is_truncated():
         _client(handler).chat(
             [{"role": "user", "content": "x"}], max_tokens=4, require_complete=True
         )
+
+
+def test_chat_warns_when_optional_output_is_truncated():
+    def handler(request):
+        return httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": "partial"}, "finish_reason": "length"}]},
+        )
+
+    with pytest.warns(RuntimeWarning, match="token limit"):
+        assert _client(handler).chat([{"role": "user", "content": "x"}], max_tokens=4) == "partial"
+
+
+def test_vllm_context_error_retries_without_reservation_when_tokenize_is_absent():
+    calls = []
+
+    def handler(request):
+        calls.append((request.url.path, __import__("json").loads(request.content)))
+        if request.url.path == "/v1/chat/completions" and len(calls) == 1:
+            return httpx.Response(
+                400,
+                json={
+                    "error": {
+                        "param": "max_tokens",
+                        "message": "requested tokens exceed maximum context length",
+                    }
+                },
+            )
+        if request.url.path == "/tokenize":
+            return httpx.Response(404, json={"error": "not found"})
+        assert "max_tokens" not in calls[-1][1]
+        return httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": "ok"}, "finish_reason": "stop"}]},
+        )
+
+    assert _client(handler).chat([{"role": "user", "content": "x"}], max_tokens=4) == "ok"
+    assert [path for path, _ in calls] == [
+        "/v1/chat/completions",
+        "/tokenize",
+        "/v1/chat/completions",
+    ]

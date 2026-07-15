@@ -51,3 +51,8 @@ def test_environment_overrides_platform(monkeypatch):
     assert config.inference.backend is InferenceBackend.omlx
     assert config.inference.device == "cpu"
     assert config.inference.concurrency == 7
+
+
+def test_optional_metrics_port(monkeypatch):
+    monkeypatch.setenv("STRIDE_METRICS_PORT", "9108")
+    assert AppConfig().workflow.metrics_port == 9108

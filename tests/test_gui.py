@@ -28,7 +28,6 @@ def gui_workspace(tmp_path, monkeypatch):
             data_dir=data,
             prompts_dir=prompts,
             output_dir=output,
-            logs_dir=tmp_path / "logs",
         ),
     )
     monkeypatch.setattr(gui, "CONFIG", config)
