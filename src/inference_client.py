@@ -45,17 +45,28 @@ class OpenAICompatibleClient:
         model: str,
         context_size: int,
         timeout: float = 120.0,
+        device: str = "cpu",
+        concurrency: int = 4,
     ) -> None:
         self.backend = backend
         self.base_url = normalize_base_url(base_url)
         self.api_key = api_key
         self.model = model
         self.context_size = context_size
+        self.device = device
+        self.concurrency = concurrency
         host = urlsplit(self.base_url).hostname
         self._http = httpx.Client(
             timeout=timeout,
             trust_env=host not in {"127.0.0.1", "localhost", "::1"},
-            headers={"Authorization": f"Bearer {api_key}"},
+            limits=httpx.Limits(
+                max_connections=concurrency,
+                max_keepalive_connections=concurrency,
+            ),
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "X-LangGraph-Stride-Device": device,
+            },
         )
 
     @classmethod
@@ -67,6 +78,8 @@ class OpenAICompatibleClient:
         model: str,
         context_size: int,
         timeout: float = 120.0,
+        device: str = "cpu",
+        concurrency: int = 4,
     ) -> OpenAICompatibleClient:
         selected = parse_backend(backend)
         return cls(
@@ -76,6 +89,8 @@ class OpenAICompatibleClient:
             model=model,
             context_size=context_size,
             timeout=timeout,
+            device=device,
+            concurrency=concurrency,
         )
 
     def close(self) -> None:
@@ -137,7 +152,10 @@ class OpenAICompatibleClient:
         response = self._http.post(self._tokenize_url(), json=token_payload)
         if response.status_code >= 400:
             return None
-        body = response.json()
+        try:
+            body = response.json()
+        except ValueError:
+            return None
         try:
             return int(body["count"]), int(body["max_model_len"])
         except (KeyError, TypeError, ValueError):
@@ -198,6 +216,8 @@ def _cached_client(
     model: str,
     context_size: int,
     timeout: float,
+    device: str,
+    concurrency: int,
 ) -> OpenAICompatibleClient:
     return OpenAICompatibleClient(
         backend=backend,
@@ -206,6 +226,8 @@ def _cached_client(
         model=model,
         context_size=context_size,
         timeout=timeout,
+        device=device,
+        concurrency=concurrency,
     )
 
 
@@ -218,4 +240,6 @@ def client_from_config(config: InferenceConfig) -> OpenAICompatibleClient:
         config.model,
         config.context_size,
         config.timeout,
+        config.device,
+        config.concurrency,
     )

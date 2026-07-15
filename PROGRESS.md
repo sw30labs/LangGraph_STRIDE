@@ -73,3 +73,10 @@
 - Source verification: HEAD, dirty-status digest, and all-file digest exactly match the Phase 0 baseline.
 - Orchestrator verified gate: PASS — Ruff format/lint, 38 tests, import smoke, vLLM persona e2e, and oMLX persona e2e.
 - Next: focused seam review, then independent clean-clone verification.
+
+## Iteration 9 — focused seam review fixes
+
+- Review verdict: FAIL with three findings — environment metrics were suppressed by an explicit CLI `None`, device/concurrency lacked runtime and direct-command wiring, and a 2xx non-JSON `/tokenize` response bypassed the intended fallback.
+- Fixes: preserved `WorkflowConfig`'s environment default when the flag is absent; added `--device` and `--batch-size`/`--concurrency` across inference and workflow commands; used concurrency for the HTTP connection pool and device for request observability; made tokenizer JSON decode failures fall back to a server-managed completion budget.
+- Orchestrator gate: PASS — Ruff format/lint, 39 tests, import smoke, vLLM persona e2e, and oMLX persona e2e.
+- Next: independent clean-clone verification.

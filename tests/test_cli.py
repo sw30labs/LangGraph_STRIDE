@@ -27,6 +27,8 @@ def test_direct_inference_commands_expose_neutral_and_provider_aliases():
             "--inference-api-key",
             "--vllm-api-key",
             "--omlx-api-key",
+            "--device",
+            "--batch-size",
         ):
             assert option in exposed
 
@@ -54,3 +56,25 @@ def test_threat_model_can_start_metrics_on_explicit_port(monkeypatch, tmp_path):
     result = runner.invoke(app, ["threat-model", "AA123456", "--metrics-port", "9108"])
     assert result.exit_code == 0
     assert started == [9108]
+
+
+def test_threat_model_honors_metrics_port_from_environment(monkeypatch, tmp_path):
+    started = []
+
+    class FakeWorkflow:
+        def __init__(self, config):
+            assert config.inference.device == "cpu"
+            assert config.inference.concurrency == 6
+
+        def run(self, aa_id):
+            return tmp_path / f"{aa_id}.json"
+
+    monkeypatch.setenv("STRIDE_METRICS_PORT", "9109")
+    monkeypatch.setattr("src.cli.ThreatModelWorkflow", FakeWorkflow)
+    monkeypatch.setattr("src.cli.start_http_server", started.append)
+    result = runner.invoke(
+        app,
+        ["threat-model", "AA123456", "--device", "cpu", "--batch-size", "6"],
+    )
+    assert result.exit_code == 0
+    assert started == [9109]

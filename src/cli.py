@@ -31,10 +31,29 @@ KeyOption = Annotated[
         "--inference-api-key", "--vllm-api-key", "--omlx-api-key", help="Endpoint API key"
     ),
 ]
+DeviceOption = Annotated[str | None, typer.Option("--device", help="cuda, mps, or cpu")]
+BatchOption = Annotated[
+    int | None,
+    typer.Option("--batch-size", "--concurrency", min=1, help="Maximum inference connections"),
+]
 
 
-def _inference(backend: str | None, url: str | None, key: str | None, model: str | None):
-    return build_inference_config(backend, base_url=url, api_key=key, model=model)
+def _inference(
+    backend: str | None,
+    url: str | None,
+    key: str | None,
+    model: str | None,
+    device: str | None,
+    batch_size: int | None,
+):
+    return build_inference_config(
+        backend,
+        base_url=url,
+        api_key=key,
+        model=model,
+        device=device,
+        concurrency=batch_size,
+    )
 
 
 @app.command()
@@ -57,9 +76,13 @@ def models(
     inference_url: UrlOption = None,
     inference_model: ModelOption = None,
     inference_api_key: KeyOption = None,
+    device: DeviceOption = None,
+    batch_size: BatchOption = None,
 ) -> None:
     """List models served by an OpenAI-compatible endpoint."""
-    config = _inference(backend, inference_url, inference_api_key, inference_model)
+    config = _inference(
+        backend, inference_url, inference_api_key, inference_model, device, batch_size
+    )
     for model_id in client_from_config(config).list_models():
         typer.echo(model_id)
 
@@ -70,9 +93,13 @@ def smoke_inference(
     inference_url: UrlOption = None,
     inference_model: ModelOption = None,
     inference_api_key: KeyOption = None,
+    device: DeviceOption = None,
+    batch_size: BatchOption = None,
 ) -> None:
     """Send one small request through the same inference seam as the workflows."""
-    config = _inference(backend, inference_url, inference_api_key, inference_model)
+    config = _inference(
+        backend, inference_url, inference_api_key, inference_model, device, batch_size
+    )
     result = client_from_config(config).chat(
         [{"role": "user", "content": "langgraph-stride smoke"}],
         max_tokens=64,
@@ -89,6 +116,8 @@ def threat_model(
     inference_url: UrlOption = None,
     inference_model: ModelOption = None,
     inference_api_key: KeyOption = None,
+    device: DeviceOption = None,
+    batch_size: BatchOption = None,
     data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
     prompts_dir: Annotated[Path | None, typer.Option("--prompts-dir")] = None,
     output_dir: Annotated[Path | None, typer.Option("--output-dir")] = None,
@@ -96,13 +125,22 @@ def threat_model(
 ) -> None:
     """Generate a STRIDE model and DREAD assessment for one application."""
     config = AppConfig(
-        inference=_inference(backend, inference_url, inference_api_key, inference_model),
+        inference=_inference(
+            backend,
+            inference_url,
+            inference_api_key,
+            inference_model,
+            device,
+            batch_size,
+        ),
         paths=PathConfig(
             data_dir=data_dir or PathConfig().data_dir,
             prompts_dir=prompts_dir or PathConfig().prompts_dir,
             output_dir=output_dir or PathConfig().output_dir,
         ),
-        workflow=WorkflowConfig(metrics_port=metrics_port),
+        workflow=WorkflowConfig()
+        if metrics_port is None
+        else WorkflowConfig(metrics_port=metrics_port),
     )
     if config.workflow.metrics_port is not None:
         start_http_server(config.workflow.metrics_port)
@@ -118,6 +156,8 @@ def scenario(
     inference_url: UrlOption = None,
     inference_model: ModelOption = None,
     inference_api_key: KeyOption = None,
+    device: DeviceOption = None,
+    batch_size: BatchOption = None,
     min_cvss: Annotated[float, typer.Option("--min-cvss", min=0, max=10)] = 8.5,
     db_path: Annotated[str, typer.Option("--db-path")] = "cve_database.db",
     data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
@@ -127,7 +167,14 @@ def scenario(
     """Generate CVE, CTI, and threat-scenario reports from a threat model."""
     defaults = PathConfig()
     config = AppConfig(
-        inference=_inference(backend, inference_url, inference_api_key, inference_model),
+        inference=_inference(
+            backend,
+            inference_url,
+            inference_api_key,
+            inference_model,
+            device,
+            batch_size,
+        ),
         paths=PathConfig(
             data_dir=data_dir or defaults.data_dir,
             prompts_dir=prompts_dir or defaults.prompts_dir,

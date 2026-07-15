@@ -152,13 +152,15 @@ def build_inference_config(
     base_url: str | None = None,
     api_key: str | None = None,
     model: str | None = None,
+    device: str | None = None,
+    concurrency: int | None = None,
 ) -> InferenceConfig:
     """Resolve one complete provider persona with optional CLI overrides."""
     selected = parse_backend(backend) if backend else default_inference_backend()
     return InferenceConfig(
         backend=selected,
-        device=default_device(),
-        concurrency=default_concurrency(),
+        device=device or default_device(),
+        concurrency=concurrency or default_concurrency(),
         base_url=base_url or resolve_base_url(selected),
         api_key=api_key if api_key is not None else resolve_api_key(selected),
         model=model or resolve_model(selected),

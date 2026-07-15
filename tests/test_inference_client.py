@@ -92,7 +92,7 @@ def test_vllm_context_error_retries_without_reservation_when_tokenize_is_absent(
                 },
             )
         if request.url.path == "/tokenize":
-            return httpx.Response(404, json={"error": "not found"})
+            return httpx.Response(200, text="not-json")
         assert "max_tokens" not in calls[-1][1]
         return httpx.Response(
             200,
