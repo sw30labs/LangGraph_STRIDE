@@ -1,0 +1,44 @@
+[
+  {
+    "AA ID": "AA123456",
+    "Application Name": "ACME FRAUD ANALYTICAL TOOL",
+    "SWC Description": "ACME FRAUD ANALYTICAL TOOL is an application that analyses through Generative Al the behaviour of the cli",
+    "Solution Description": "Example Solution Description developed in SCALA",
+    "SWC Responsible SDU/Stream": "Acme",
+    "Confidentiality": "Internal (Tier 3)",
+    "Integrity": "Trusted (Tier 2)",
+    "Technology BCM": "Tier 1",
+    "Platform": ["Windows Global Server Platform", "Cloud Platform (for SAAS Solutions only)"],
+    "Externally facing":"Yes - Internet",
+    "Development Category": "COTS - Commercial of the shelf Software",
+    "CID handling": "No CID (if the SWC only has CAT D data OR no CAT A/B/c/D data at all)"
+  },
+  {
+    "AA ID": "AA654321" ,
+    "Application Name": "ACME ACTIONS INCOME PROCESSING",
+    "SWC Description": "Batch Input file that calculates Salaries for politicians and at risk Celebrities",
+    "Solution Description": "Example Solution Description developed in PYTHON",
+    "SWC Responsible SDU/Stream": "Acme",
+    "Confidentiality": "Confidential (Tier 2)",
+    "Integrity": "Trusted (Tier 2)",
+    "Technology BCM": "Tier 1",
+    "Platform": ["z/os Platform", "Cloud Platform (for SAAS Solutions only)"],
+    "Externally facing": "Yes - Internet",
+    "Development Category": "COTS - Commercial of the shelf Software - unsupported",
+    "CID handling": "Structured CID (if the SWC has at least CAT A/B/c data in a structured format)"
+  },
+  {
+    "AA ID": "AA987654" ,
+    "Application Name": "ACME NEO",
+    "SWC Description": "ACME Neo is the cross-asset digital Investment Banking platform. It enables our professional and institut",
+    "Solution Description": "ACME NEO",
+    "SWC Responsible SDU/Stream": "Acme",
+    "Confidentiality": "Strictly Confidential (Tier 1)",
+    "Integrity": "Guaranteed (Tier 1)",
+    "Technology BCH": "Tier 1",
+    "Platform": ["Linux Platform", "Windows Global Server Platform", "Windows Non-Standard"],
+    "Externally facing": "Yes - Internet",
+    "Development Category": "In-house developed software",
+    "CID handling": "CAT A: Direct Client Identifying Data, CAT B: Sensitive Identifiers, CAT C: Potentially CID in combination"
+  }
+]

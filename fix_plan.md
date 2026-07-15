@@ -2,7 +2,7 @@
 
 - [x] Scaffold package, config, gate, mandatory platform tests, and bundled mock server.
 - [x] Implement and test the provider-neutral inference client.
-- [ ] Port and test the threat-model workflow and its assets.
+- [x] Port and test the threat-model workflow and its assets.
 - [ ] Port and test the scenario workflow and its assets.
 - [ ] Implement the Typer CLI and dual-persona contract e2e.
 - [ ] Port and test the local web GUI.

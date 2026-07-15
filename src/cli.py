@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Annotated
 
 import typer
 
-from src.config import AppConfig, build_inference_config
+from src.config import AppConfig, PathConfig, build_inference_config
 from src.inference_client import client_from_config
+from src.threat_model import ThreatModelWorkflow
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
 
@@ -76,6 +78,30 @@ def smoke_inference(
         require_complete=True,
     )
     typer.echo(result)
+
+
+@app.command("threat-model")
+def threat_model(
+    aa_id: Annotated[str, typer.Argument(help="Application AA ID from the CMDB sample")],
+    backend: BackendOption = None,
+    inference_url: UrlOption = None,
+    inference_model: ModelOption = None,
+    inference_api_key: KeyOption = None,
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+    prompts_dir: Annotated[Path | None, typer.Option("--prompts-dir")] = None,
+    output_dir: Annotated[Path | None, typer.Option("--output-dir")] = None,
+) -> None:
+    """Generate a STRIDE model and DREAD assessment for one application."""
+    config = AppConfig(
+        inference=_inference(backend, inference_url, inference_api_key, inference_model),
+        paths=PathConfig(
+            data_dir=data_dir or PathConfig().data_dir,
+            prompts_dir=prompts_dir or PathConfig().prompts_dir,
+            output_dir=output_dir or PathConfig().output_dir,
+        ),
+    )
+    path = ThreatModelWorkflow(config).run(aa_id)
+    typer.echo(path)
 
 
 if __name__ == "__main__":
