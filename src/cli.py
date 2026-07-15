@@ -135,5 +135,16 @@ def scenario(
     typer.echo(path)
 
 
+@app.command()
+def serve(
+    host: Annotated[str, typer.Option("--host")] = "127.0.0.1",
+    port: Annotated[int, typer.Option("--port", min=1, max=65535)] = 8765,
+) -> None:
+    """Serve the local browser console."""
+    from src.gui import serve as serve_gui
+
+    serve_gui(host, port)
+
+
 if __name__ == "__main__":
     app()

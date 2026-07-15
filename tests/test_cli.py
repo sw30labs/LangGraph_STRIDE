@@ -9,7 +9,7 @@ runner = CliRunner()
 def test_cli_exposes_ported_and_contract_commands():
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
-    for command in ("threat-model", "scenario", "info", "models", "smoke-inference"):
+    for command in ("threat-model", "scenario", "info", "models", "smoke-inference", "serve"):
         assert command in result.output
 
 

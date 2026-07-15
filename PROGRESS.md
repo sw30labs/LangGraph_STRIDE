@@ -41,3 +41,10 @@
 - Subagent gate claim: the delegated audit stalled before edits or a result; the orchestrator completed the small test-only delta.
 - Orchestrator verified gate: PASS — Ruff format/lint, 25 tests, import smoke, vLLM persona e2e, and oMLX persona e2e.
 - Next: port the local web GUI.
+
+## Iteration 5 — local web GUI
+
+- Item: port the local browser console onto the canonical CLI and configuration paths.
+- Work: added the packaged HTML/CSS/JavaScript console, repo-confined JSON preview, status and job APIs, in-memory job logs, provider alias handling, and background commands that invoke `python -m src.cli threat-model` or `scenario` with explicit configured paths. Added the `serve` CLI command and focused tests for status data, traversal rejection, command construction, jobs, and static serving without starting inference subprocesses.
+- Subagent gate claim: PASS — Ruff format/lint, 30 tests, import smoke, vLLM persona e2e, and oMLX persona e2e.
+- Next: harden the platform operations files and their surface tests.

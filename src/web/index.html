@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LangGraph STRIDE Console</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark"></span>
+        <div>
+          <h1>LangGraph STRIDE</h1>
+          <p id="workspace">Workspace loading</p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <span id="default-provider" class="status-chip">Provider</span>
+        <button id="refresh" class="button secondary" type="button">Refresh</button>
+      </div>
+    </header>
+
+    <div class="shell">
+      <aside class="rail" aria-label="Workflow navigation">
+        <button class="rail-item active" data-target="model-panel" type="button">
+          <span class="rail-kicker">01</span>
+          <span>Threat model</span>
+        </button>
+        <button class="rail-item" data-target="scenario-panel" type="button">
+          <span class="rail-kicker">02</span>
+          <span>Scenario</span>
+        </button>
+        <button class="rail-item" data-target="reports-panel" type="button">
+          <span class="rail-kicker">03</span>
+          <span>Reports</span>
+        </button>
+        <button class="rail-item" data-target="activity-panel" type="button">
+          <span class="rail-kicker">04</span>
+          <span>Activity</span>
+        </button>
+      </aside>
+
+      <main class="workspace-grid">
+        <section class="summary-strip" aria-label="System summary">
+          <div class="metric">
+            <span class="metric-label">Applications</span>
+            <strong id="metric-cmdb">0</strong>
+          </div>
+          <div class="metric">
+            <span class="metric-label">Attack templates</span>
+            <strong id="metric-templates">0</strong>
+          </div>
+          <div class="metric">
+            <span class="metric-label">Threat models</span>
+            <strong id="metric-stride">0</strong>
+          </div>
+          <div class="metric">
+            <span class="metric-label">Scenarios</span>
+            <strong id="metric-scenarios">0</strong>
+          </div>
+        </section>
+
+        <section id="model-panel" class="panel primary-panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Threat model workflow</p>
+              <h2>Generate STRIDE and DREAD</h2>
+            </div>
+            <span id="model-provider-state" class="state-indicator">Idle</span>
+          </div>
+
+          <form id="model-form" class="form-grid">
+            <label>
+              <span>AA ID</span>
+              <select id="aa-id" name="aa_id"></select>
+            </label>
+            <label>
+              <span>Provider</span>
+              <select id="model-provider" name="provider"></select>
+            </label>
+            <button class="button primary form-action" type="submit">Run model</button>
+          </form>
+
+          <div class="detail-band" id="cmdb-detail">
+            <div class="empty-state">No application selected</div>
+          </div>
+        </section>
+
+        <section id="scenario-panel" class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Scenario workflow</p>
+              <h2>Generate CVE, CTI, and threat scenario</h2>
+            </div>
+            <span id="scenario-provider-state" class="state-indicator">Idle</span>
+          </div>
+
+          <form id="scenario-form" class="form-grid scenario-form">
+            <label>
+              <span>Threat model JSON</span>
+              <select id="json-file" name="json_file"></select>
+            </label>
+            <label>
+              <span>Attack template</span>
+              <select id="attack-template" name="attack_template"></select>
+            </label>
+            <label>
+              <span>Provider</span>
+              <select id="scenario-provider" name="provider"></select>
+            </label>
+            <label>
+              <span>Minimum CVSS</span>
+              <input id="min-cvss" name="min_cvss" type="number" min="0" max="10" step="0.1" value="8.5" />
+            </label>
+            <button class="button primary form-action" type="submit">Run scenario</button>
+          </form>
+
+          <div class="technique-list" id="technique-list">
+            <div class="empty-state">No attack template selected</div>
+          </div>
+        </section>
+
+        <section id="reports-panel" class="panel wide-panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Output library</p>
+              <h2>Generated artifacts</h2>
+            </div>
+            <div class="segmented" role="tablist" aria-label="Report type">
+              <button class="segment active" data-report-type="stride" type="button">STRIDE</button>
+              <button class="segment" data-report-type="scenarios" type="button">Scenarios</button>
+              <button class="segment" data-report-type="feedback" type="button">Feedback</button>
+            </div>
+          </div>
+
+          <div class="reports-layout">
+            <div class="table-shell">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Modified</th>
+                    <th>Size</th>
+                  </tr>
+                </thead>
+                <tbody id="reports-table"></tbody>
+              </table>
+            </div>
+            <pre id="report-preview" class="report-preview">Select an artifact</pre>
+          </div>
+        </section>
+
+        <section id="activity-panel" class="panel activity-panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Execution</p>
+              <h2>Job activity</h2>
+            </div>
+            <span id="job-count" class="state-indicator">0 jobs</span>
+          </div>
+          <div id="job-list" class="job-list"></div>
+        </section>
+      </main>
+
+      <aside class="console-panel" aria-label="Live log">
+        <div class="console-header">
+          <div>
+            <p class="eyebrow">Live log</p>
+            <h2 id="console-title">No active job</h2>
+          </div>
+          <span id="console-state" class="state-indicator">Idle</span>
+        </div>
+        <pre id="console-log" class="console-log">Awaiting execution</pre>
+      </aside>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
