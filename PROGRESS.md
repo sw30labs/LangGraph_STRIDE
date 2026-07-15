@@ -97,3 +97,11 @@
 - Source verification: HEAD `ab67d6c7ca46149b370062ec94137b5bd18b9a10`, status digest `ff5478dbd4bc365543e922d10635f2ed56215429b17bec5583d74ad3b94bda0a`, 58-file digest `726b2fa48e8f6a63f7e779653bdc6d6b87af0db1d67712f9e65dc1e02f54b061`, and zero source tests all matched the baseline.
 - Cleanliness: the verifier's clone and the original target both had zero status entries.
 - Next: write the final port report, rerun the gate, and leave the committed tree clean.
+
+## Iteration 12 — completion report
+
+- Item: record final architecture, compatibility decisions, source preservation, test inventory, independent evidence, and live hardware smoke instructions.
+- Work: added `PORT_REPORT.md` and closed the complete Ralph worklist.
+- Final gate: PASS — Ruff format/lint, 43 tests, import smoke, vLLM persona e2e, and oMLX persona e2e.
+- Final source audit: HEAD, status digest, 58-file count, and non-Git file-tree digest all match the immutable baseline.
+- Handoff: this documentation-only delta is the final commit; the clean-tree confirmation follows it.

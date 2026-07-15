@@ -16,4 +16,4 @@
 - [x] Fix clean-clone finding: package data and prompt assets for wheel installs.
 - [x] Fix clean-clone finding: make DGX doctor execute and report prerequisite checks.
 - [x] Harden the complete repository and obtain independent clean-clone verification.
-- [ ] Write `PORT_REPORT.md`, verify source digests, and leave a clean final tree.
+- [x] Write `PORT_REPORT.md`, verify source digests, and leave a clean final tree.
