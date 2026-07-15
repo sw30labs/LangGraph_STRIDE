@@ -33,3 +33,11 @@
 - Orchestrator verified gate: PASS — Ruff format/lint, 22 tests, import smoke, vLLM persona e2e, and oMLX persona e2e.
 - Source-data note: the controls CSV contains 20 rows but 19 unique IDs; the source's dict construction intentionally keeps the 19 unique keys.
 - Next: wire the local web GUI to the canonical CLI commands.
+
+## Iteration 4 — CLI and dual-persona contract surface
+
+- Item: complete the Typer command and mock-persona contract surface.
+- Work: audited the already-integrated `threat-model`, `scenario`, `info`, `models`, and `smoke-inference` commands; added tests for every command plus provider-neutral URL/model/key flags and their vLLM/oMLX aliases. The contract runner continues to boot and exercise both mock personas through real CLI subprocesses.
+- Subagent gate claim: the delegated audit stalled before edits or a result; the orchestrator completed the small test-only delta.
+- Orchestrator verified gate: PASS — Ruff format/lint, 25 tests, import smoke, vLLM persona e2e, and oMLX persona e2e.
+- Next: port the local web GUI.
