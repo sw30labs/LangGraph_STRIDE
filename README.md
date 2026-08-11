@@ -153,9 +153,14 @@ python -m src.cli intel update-mitre                      # needs network
 python -m src.cli intel search-mitre --q T1190
 python -m src.cli intel ingest-cti path/to/pack.json
 python -m src.cli intel list-cti
+
+# PDF export from a saved assessment or scenario JSON
+python -m src.cli export-pdf --json-file output/stride/security_assessment_AA123456_TIMESTAMP.json
 ```
 
 Scenario CVE generation prefers the local NVD SQLite store (`output/workspace/intel/nvd/cve.sqlite` or `--db-path`). If the store is empty, it falls back to the packaged demo CVE fixture.
+
+The browser console now includes Applications, Navigator, Intel, Reports (with Export PDF), and Activity. Workflow jobs print `STAGE:` lines so the live log shows progress.
 
 ## Inputs and outputs
 
@@ -173,6 +178,7 @@ Scenario CVE generation prefers the local NVD SQLite store (`output/workspace/in
 - `output/stride/`: timestamped security assessments (include `_meta` lineage).
 - `output/feedback/`: STRIDE, DREAD, and final-QA decisions.
 - `output/scenarios/`: second-resolution scenario reports with source threat-model lineage.
+- `output/exports/`: generated PDF reports.
 
 `output/`, `logs/`, `.env`, local model caches, and virtual environments are gitignored.
 

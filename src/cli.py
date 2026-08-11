@@ -19,6 +19,7 @@ from src.config import (
 from src.inference_client import client_from_config
 from src.scenario import ScenarioWorkflow
 from src.threat_model import ThreatModelWorkflow
+from src.export_pdf import export_artifact_pdf
 from src.intel.cti import delete_cti_pack, ingest_cti_pack, list_cti_packs, upsert_cti_pack
 from src.intel.manifest import intel_status
 from src.intel.mitre import import_mitre_file, search_techniques, update_mitre_online
@@ -283,6 +284,22 @@ def navigator(
         output_dir=output_dir or PathConfig().output_dir,
     )
     typer.echo(json.dumps(build_navigator(paths), indent=2))
+
+
+@app.command("export-pdf")
+def export_pdf_cmd(
+    json_file: Annotated[Path, typer.Option("--json-file", exists=True, dir_okay=False)],
+    kind: Annotated[
+        str | None,
+        typer.Option("--kind", help="threat_model or scenario (auto-detected if omitted)"),
+    ] = None,
+    output: Annotated[Path | None, typer.Option("--output", "--out")] = None,
+    output_dir: Annotated[Path | None, typer.Option("--output-dir")] = None,
+) -> None:
+    """Render a threat model or scenario JSON artifact to PDF."""
+    paths = PathConfig(output_dir=output_dir or PathConfig().output_dir)
+    path = export_artifact_pdf(json_file, paths=paths, kind=kind, output_path=output)
+    typer.echo(path)
 
 
 @cmdb_app.command("list")

@@ -39,6 +39,7 @@ from src.intel.nvd import (
     seed_demo_cves,
     update_nvd_online,
 )
+from src.export_pdf import export_artifact_pdf
 from src.workspace import (
     build_navigator,
     chain_technique_labels,
@@ -474,6 +475,21 @@ class GuiHandler(BaseHTTPRequestHandler):
                 raw_path = unquote((parse_qs(parsed.query).get("path") or [""])[0])
                 path = ensure_repo_file(raw_path)
                 self.send_json({"path": rel_path(path), "content": load_json_file(path, None)})
+            elif parsed.path == "/api/export/download":
+                # I stream a generated PDF (or other export) when it stays inside the workspace.
+                raw_path = unquote((parse_qs(parsed.query).get("path") or [""])[0])
+                path = ensure_repo_file(raw_path)
+                body = path.read_bytes()
+                content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", content_type)
+                self.send_header("Content-Length", str(len(body)))
+                self.send_header(
+                    "Content-Disposition",
+                    f'attachment; filename="{path.name}"',
+                )
+                self.end_headers()
+                self.wfile.write(body)
             else:
                 self.serve_static(parsed.path)
         except Exception as exc:
@@ -542,6 +558,28 @@ class GuiHandler(BaseHTTPRequestHandler):
                     self.send_json(build_intel_job({**data, "mode": mode}).snapshot(), HTTPStatus.ACCEPTED)
             elif parsed.path == "/api/cti":
                 self.send_json(upsert_cti_pack(CONFIG.paths, data), HTTPStatus.CREATED)
+            elif parsed.path == "/api/export/pdf":
+                # I turn a workspace JSON artifact into a PDF under output/exports/.
+                raw_path = str(data.get("path") or "").strip()
+                if not raw_path:
+                    raise ValueError("path is required")
+                source = ensure_repo_file(raw_path)
+                kind = data.get("kind")
+                if kind is not None:
+                    kind = str(kind)
+                pdf_path = export_artifact_pdf(
+                    source,
+                    paths=CONFIG.paths,
+                    kind=kind if kind in {"threat_model", "scenario"} else None,
+                )
+                self.send_json(
+                    {
+                        "path": rel_path(pdf_path),
+                        "absolute_path": str(pdf_path.resolve()),
+                        "size": pdf_path.stat().st_size,
+                    },
+                    HTTPStatus.CREATED,
+                )
             else:
                 self.send_error_json(HTTPStatus.NOT_FOUND, "Unknown endpoint")
         except Exception as exc:

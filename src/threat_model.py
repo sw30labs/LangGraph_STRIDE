@@ -14,6 +14,12 @@ from src.config import AppConfig
 from src.inference_client import OpenAICompatibleClient, client_from_config
 from src.workspace import get_cmdb_entry_legacy, now_iso
 
+
+def _stage(name: str) -> None:
+    # I print STAGE lines so the GUI live log can show progress without waiting
+    # for the whole job to finish.
+    print(f"STAGE: {name}", flush=True)
+
 STRIDE_CATEGORIES = (
     "Spoofing",
     "Tampering",
@@ -124,6 +130,7 @@ class ThreatModelWorkflow:
         )
 
     def _generate_stride(self, state: ThreatModelState) -> ThreatModelState:
+        _stage("generate_stride")
         template = self.prompts["stride"]["human_template"]
         context = "\n".join(f"{key}: {value}" for key, value in state["cmdb_info"].items() if value)
         prompt = f"{template}\n\n{state['system_desc']}\n\nSystem Context:\n{context}"
@@ -132,6 +139,7 @@ class ThreatModelWorkflow:
         return {"stride_data": parse_stride_response(self._ask(prompt))}
 
     def _qa_stride(self, state: ThreatModelState) -> ThreatModelState:
+        _stage("qa_stride")
         template = self.prompts["qa_stride"]["human_template"]
         prompt = template.replace("{{stride_output}}", json.dumps(state["stride_data"], indent=2))
         try:
@@ -152,6 +160,7 @@ class ThreatModelWorkflow:
         )
 
     def _generate_dread(self, state: ThreatModelState) -> ThreatModelState:
+        _stage("generate_dread")
         threats = [
             (row["threat_name"], category)
             for category, rows in state["stride_data"].items()
@@ -166,6 +175,7 @@ class ThreatModelWorkflow:
         return {"dread_data": parsed if parsed.get("Risk Assessment") else {"Risk Assessment": []}}
 
     def _qa_dread(self, state: ThreatModelState) -> ThreatModelState:
+        _stage("qa_dread")
         template = self.prompts["qa_dread"]["human_template"]
         prompt = template.replace("{{dread_output}}", json.dumps(state["dread_data"], indent=2))
         try:
@@ -186,6 +196,7 @@ class ThreatModelWorkflow:
         )
 
     def _final_qa(self, state: ThreatModelState) -> ThreatModelState:
+        _stage("final_qa")
         model = {
             "system_metadata": {"aa_id": state["aa_id"], **state["cmdb_info"]},
             **state["stride_data"],
@@ -203,6 +214,7 @@ class ThreatModelWorkflow:
         }
 
     def _save(self, state: ThreatModelState) -> ThreatModelState:
+        _stage("save")
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
         aa_id = state["aa_id"]
         artifact_id = f"tm_{aa_id}_{timestamp}"

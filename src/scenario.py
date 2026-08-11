@@ -20,6 +20,11 @@ from src.intel.nvd import load_cves_for_scenario
 from src.workspace import get_chain_techniques, now_iso
 
 
+def _stage(name: str) -> None:
+    # I print STAGE lines so the Activity panel can show which scenario step is live.
+    print(f"STAGE: {name}", flush=True)
+
+
 class ScenarioState(TypedDict, total=False):
     json_file: str
     attack_template: str
@@ -90,6 +95,7 @@ class ScenarioWorkflow:
         )
 
     def _select(self, state: ScenarioState) -> ScenarioState:
+        _stage("select")
         path = Path(state["json_file"])
         data = json.loads(path.read_text(encoding="utf-8"))
         metadata = data.get("system_metadata")
@@ -141,6 +147,7 @@ class ScenarioWorkflow:
         }
 
     def _generate_cve(self, state: ScenarioState) -> ScenarioState:
+        _stage("generate_cve")
         try:
             min_cvss = float(state.get("cvss_score") or 0)
         except (TypeError, ValueError):
@@ -169,6 +176,7 @@ class ScenarioWorkflow:
         return {"cve_feedback": {"approved": True, "feedback": "Approved"}, "cve_approved": True}
 
     def _generate_cti(self, state: ScenarioState) -> ScenarioState:
+        _stage("generate_cti")
         technique_ids = []
         for label in state.get("selected_techniques") or []:
             match = re.search(r"(T\d{4}(?:\.\d{3})?)", str(label))
@@ -199,6 +207,7 @@ class ScenarioWorkflow:
         return {"cti_feedback": {"approved": True, "feedback": "Approved"}, "cti_approved": True}
 
     def _generate_scenario(self, state: ScenarioState) -> ScenarioState:
+        _stage("generate_scenario")
         info = state["cmdb_info"]
         template = self.prompts["scenario_menu_gen_system_message_reporting_agent_v2"]
         prompt = template.format(
@@ -238,6 +247,7 @@ class ScenarioWorkflow:
         }
 
     def _save(self, state: ScenarioState) -> ScenarioState:
+        _stage("save")
         now = datetime.now()
         title = re.sub(r"[^A-Za-z0-9._-]+", "_", state["attack_template"]).strip("_")
         output_dir = self.config.paths.output_dir / "scenarios"
