@@ -236,7 +236,28 @@ class WorkflowConfig(BaseModel):
     metrics_port: int | None = Field(default_factory=default_metrics_port, ge=1, le=65_535)
 
 
+class Neo4jConfig(BaseModel):
+    """Dedicated STRIDE attack-graph store (not TwinOps).
+
+    Defaults target compose.neo4j.yaml: HTTP 7475, Bolt 7688.
+    """
+
+    enabled: bool = Field(default_factory=lambda: _bool_env("STRIDE_NEO4J_ENABLED", True))
+    uri: str = Field(
+        default_factory=lambda: os.getenv("STRIDE_NEO4J_URI", "bolt://127.0.0.1:7688")
+    )
+    user: str = Field(default_factory=lambda: os.getenv("STRIDE_NEO4J_USER", "neo4j"))
+    password: str = Field(
+        default_factory=lambda: os.getenv("STRIDE_NEO4J_PASSWORD", "stride-graph-dev")
+    )
+    database: str = Field(default_factory=lambda: os.getenv("STRIDE_NEO4J_DATABASE", "neo4j"))
+    browser_url: str = Field(
+        default_factory=lambda: os.getenv("STRIDE_NEO4J_BROWSER", "http://127.0.0.1:7475")
+    )
+
+
 class AppConfig(BaseModel):
     inference: InferenceConfig = Field(default_factory=build_inference_config)
     paths: PathConfig = Field(default_factory=PathConfig)
     workflow: WorkflowConfig = Field(default_factory=WorkflowConfig)
+    neo4j: Neo4jConfig = Field(default_factory=Neo4jConfig)

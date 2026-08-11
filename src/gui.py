@@ -25,6 +25,7 @@ from src.config import (
     parse_backend,
     parse_reasoning_strength,
 )
+from src.export_pdf import export_artifact_pdf
 from src.intel.cti import (
     delete_cti_pack,
     ingest_cti_pack,
@@ -39,7 +40,16 @@ from src.intel.nvd import (
     seed_demo_cves,
     update_nvd_online,
 )
-from src.export_pdf import export_artifact_pdf
+from src.maintain.cards import cards_payload
+from src.maintain.graph import clone_pairs
+from src.maintain.neo4j_graph import (
+    CANNED_QUERIES,
+    canned_query,
+    neo4j_status,
+    try_sync_after_build,
+    visualization_payload,
+)
+from src.maintain.workflows import commit_proposal_file, run_neo4j_sync
 from src.workspace import (
     build_navigator,
     chain_technique_labels,
@@ -176,6 +186,27 @@ def load_attack_templates() -> list[dict[str, Any]]:
     ]
 
 
+def _probe_provider(base_url: str, api_key: str) -> tuple[bool, str]:
+    """I ping /models quickly so the UI does not claim a provider is ready when auth fails."""
+    if not api_key:
+        return False, "API key missing"
+    try:
+        import httpx
+
+        from src.inference_client import normalize_base_url
+
+        url = f"{normalize_base_url(base_url)}/models"
+        with httpx.Client(timeout=0.8, trust_env=False) as client:
+            response = client.get(url, headers={"Authorization": f"Bearer {api_key}"})
+        if response.status_code == 401:
+            return False, "API key rejected (401) — check MLX_API_KEY / OPENAI_API_KEY / VLLM_API_KEY"
+        if response.status_code >= 400:
+            return False, f"Endpoint returned HTTP {response.status_code}"
+        return True, "ok"
+    except Exception as exc:
+        return False, f"Unreachable: {type(exc).__name__}"
+
+
 def provider_status() -> dict[str, Any]:
     providers = []
     labels = {
@@ -185,16 +216,21 @@ def provider_status() -> dict[str, Any]:
     }
     for backend in InferenceBackend:
         inference = build_inference_config(backend)
+        ready, detail = _probe_provider(inference.base_url, inference.api_key)
+        if ready:
+            detail = (
+                "Hosted model endpoint"
+                if backend is InferenceBackend.openai
+                else "Local OpenAI-compatible endpoint"
+            )
         providers.append(
             {
                 "id": backend.value,
                 "label": labels[backend],
-                "ready": bool(inference.api_key),
+                "ready": ready,
                 "model": inference.model,
                 "base_url": inference.base_url,
-                "detail": "Hosted model endpoint"
-                if backend is InferenceBackend.openai
-                else "Local OpenAI-compatible endpoint",
+                "detail": detail,
             }
         )
     return {"default": CONFIG.inference.backend.value, "providers": providers}
@@ -410,6 +446,45 @@ def build_scenario_job(data: dict[str, Any]) -> Job:
     return start_job("scenario", command)
 
 
+def build_maintain_job(data: dict[str, Any]) -> Job:
+    """Background Maintain studio card (forge / autopsy / galaxy)."""
+    card = str(data.get("card") or data.get("card_id") or "").strip()
+    if not card:
+        raise ValueError("card is required")
+    backend = parse_backend(str(data.get("provider") or CONFIG.inference.backend.value)).value
+    command = [
+        sys.executable,
+        "-m",
+        "src.cli",
+        "maintain",
+        "run",
+        card,
+        "--backend",
+        backend,
+        *thinking_cli_arguments(data),
+        *_path_arguments(),
+    ]
+    steer = str(data.get("steer") or "").strip()
+    if steer:
+        command.extend(["--steer", steer])
+    if data.get("max_jaccard") not in (None, ""):
+        command.extend(["--max-jaccard", str(float(data["max_jaccard"]))])
+    if data.get("threshold") not in (None, ""):
+        command.extend(["--threshold", str(float(data["threshold"]))])
+    if data.get("web_spark"):
+        command.append("--web-spark")
+    else:
+        command.append("--no-web-spark")
+    aa_id = str(data.get("aa_id") or "").strip()
+    if aa_id:
+        command.extend(["--aa-id", aa_id])
+    if data.get("commit"):
+        command.append("--commit")
+    else:
+        command.append("--no-commit")
+    return start_job(f"maintain-{card}", command)
+
+
 class GuiHandler(BaseHTTPRequestHandler):
     server_version = "LangGraphStrideGUI/0.1"
 
@@ -460,6 +535,39 @@ class GuiHandler(BaseHTTPRequestHandler):
                 self.send_json(rows)
             elif parsed.path == "/api/cti":
                 self.send_json(list_cti_packs(CONFIG.paths))
+            elif parsed.path == "/api/maintain/cards":
+                self.send_json(cards_payload())
+            elif parsed.path == "/api/maintain/graph":
+                # Observatory payload: analytics + force layouts; best-effort Neo4j sync.
+                query = parse_qs(parsed.query)
+                sync = (query.get("sync") or ["1"])[0].lower() not in {"0", "false", "no"}
+                graph = visualization_payload(CONFIG.paths, neo=CONFIG.neo4j)
+                if sync and CONFIG.neo4j.enabled:
+                    try_sync_after_build(CONFIG, graph)
+                    graph["neo4j"] = neo4j_status(CONFIG.neo4j)
+                self.send_json(graph)
+            elif parsed.path == "/api/maintain/clones":
+                query = parse_qs(parsed.query)
+                threshold = float((query.get("threshold") or ["0.55"])[0] or 0.55)
+                self.send_json(clone_pairs(CONFIG.paths, threshold=threshold))
+            elif parsed.path == "/api/maintain/neo4j":
+                self.send_json(neo4j_status(CONFIG.neo4j))
+            elif parsed.path == "/api/maintain/neo4j/queries":
+                self.send_json(
+                    {
+                        "queries": [
+                            {"id": key, "title": meta["title"]}
+                            for key, meta in CANNED_QUERIES.items()
+                        ]
+                    }
+                )
+            elif parsed.path.startswith("/api/maintain/neo4j/query/"):
+                name = unquote(parsed.path.rsplit("/", 1)[-1])
+                query = parse_qs(parsed.query)
+                params = {}
+                if query.get("chain_id"):
+                    params["chain_id"] = query["chain_id"][0]
+                self.send_json(canned_query(CONFIG.neo4j, name, params or None))
             elif parsed.path == "/api/jobs":
                 with JOBS_LOCK:
                     self.send_json([job.snapshot() for job in JOBS.values()])
@@ -503,6 +611,24 @@ class GuiHandler(BaseHTTPRequestHandler):
                 self.send_json(build_model_job(data).snapshot(), HTTPStatus.ACCEPTED)
             elif parsed.path == "/api/jobs/scenario":
                 self.send_json(build_scenario_job(data).snapshot(), HTTPStatus.ACCEPTED)
+            elif parsed.path == "/api/jobs/maintain":
+                self.send_json(build_maintain_job(data).snapshot(), HTTPStatus.ACCEPTED)
+            elif parsed.path == "/api/maintain/commit":
+                raw_path = str(data.get("path") or "").strip()
+                if not raw_path:
+                    raise ValueError("path is required")
+                # Allow absolute proposal paths written under output/, else repo-relative.
+                try:
+                    proposal = ensure_repo_file(raw_path)
+                    result = commit_proposal_file(CONFIG, str(proposal))
+                except ValueError:
+                    result = commit_proposal_file(CONFIG, raw_path)
+                self.send_json(
+                    {**result, "chains": load_attack_templates()},
+                    HTTPStatus.CREATED,
+                )
+            elif parsed.path == "/api/maintain/neo4j/sync":
+                self.send_json(run_neo4j_sync(CONFIG), HTTPStatus.CREATED)
             elif parsed.path == "/api/cmdb":
                 self.send_json(upsert_cmdb_entry(CONFIG.paths, data), HTTPStatus.CREATED)
             elif parsed.path == "/api/cmdb/seed":

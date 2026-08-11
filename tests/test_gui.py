@@ -72,12 +72,26 @@ def test_job_builders_use_canonical_cli_and_provider_alias(gui_workspace, monkey
     scenario = gui.build_scenario_job(
         {"json_file": "output/model.json", "attack_template": "Template", "provider": "mlx"}
     )
+    maintain = gui.build_maintain_job(
+        {
+            "card": "dark_matter",
+            "provider": "mlx",
+            "steer": "identity-only",
+            "web_spark": False,
+            "max_jaccard": 0.4,
+        }
+    )
 
     assert model.command[1:5] == ["-m", "src.cli", "threat-model", "AA1"]
     assert model.command[model.command.index("--backend") + 1] == "omlx"
     assert scenario.command[1:4] == ["-m", "src.cli", "scenario"]
     assert scenario.command[scenario.command.index("--backend") + 1] == "omlx"
     assert "--data-dir" in scenario.command
+    assert maintain.command[1:5] == ["-m", "src.cli", "maintain", "run"]
+    assert "dark_matter" in maintain.command
+    assert maintain.command[maintain.command.index("--backend") + 1] == "omlx"
+    assert "--steer" in maintain.command
+    assert "--no-web-spark" in maintain.command
 
 
 def test_job_builders_pass_thinking_controls(gui_workspace, monkeypatch):

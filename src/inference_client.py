@@ -235,6 +235,13 @@ class OpenAICompatibleClient:
         retry = self._context_retry_payload(payload, response)
         if retry is not None:
             response = self._http.post(f"{self.base_url}/chat/completions", json=retry)
+        if response.status_code == 401:
+            # I surface a clear key hint instead of a raw httpx stack dump in the job log.
+            raise RuntimeError(
+                f"Inference auth failed (401) for {self.base_url}/chat/completions. "
+                "Check the API key for this provider (MLX_API_KEY / OMLX_API_KEY, "
+                "VLLM_API_KEY, or OPENAI_API_KEY)."
+            )
         response.raise_for_status()
         body = response.json()
         if not isinstance(body, dict):

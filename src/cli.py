@@ -16,14 +16,18 @@ from src.config import (
     WorkflowConfig,
     build_inference_config,
 )
-from src.inference_client import client_from_config
-from src.scenario import ScenarioWorkflow
-from src.threat_model import ThreatModelWorkflow
 from src.export_pdf import export_artifact_pdf
+from src.inference_client import client_from_config
 from src.intel.cti import delete_cti_pack, ingest_cti_pack, list_cti_packs, upsert_cti_pack
 from src.intel.manifest import intel_status
 from src.intel.mitre import import_mitre_file, search_techniques, update_mitre_online
 from src.intel.nvd import import_nvd_file, query_cves, seed_demo_cves, update_nvd_online
+from src.maintain.cards import CARD_CATALOG, cards_payload
+from src.maintain.graph import clone_pairs
+from src.maintain.neo4j_graph import CANNED_QUERIES, canned_query, neo4j_status
+from src.maintain.workflows import commit_proposal_file, run_maintain_card, run_neo4j_sync
+from src.scenario import ScenarioWorkflow
+from src.threat_model import ThreatModelWorkflow
 from src.workspace import (
     build_navigator,
     delete_chain,
@@ -41,9 +45,11 @@ app = typer.Typer(no_args_is_help=True, add_completion=False)
 cmdb_app = typer.Typer(no_args_is_help=True, help="Maintain the workspace CMDB inventory.")
 chains_app = typer.Typer(no_args_is_help=True, help="Maintain attack-chain templates.")
 intel_app = typer.Typer(no_args_is_help=True, help="Ingest and update NVD / MITRE / CTI intel.")
+maintain_app = typer.Typer(no_args_is_help=True, help="Maintain studio: forge, audit, galaxy.")
 app.add_typer(cmdb_app, name="cmdb")
 app.add_typer(chains_app, name="chains")
 app.add_typer(intel_app, name="intel")
+app.add_typer(maintain_app, name="maintain")
 
 BackendOption = Annotated[str | None, typer.Option("--backend", help="vllm, omlx/mlx, or openai")]
 UrlOption = Annotated[
@@ -593,6 +599,156 @@ def intel_delete_cti(
 ) -> None:
     delete_cti_pack(_paths(output_dir=output_dir), pack_id)
     typer.echo(pack_id)
+
+
+@maintain_app.command("cards")
+def maintain_cards() -> None:
+    """List Maintain studio cards (playground-style catalog)."""
+    typer.echo(json.dumps(cards_payload(), indent=2))
+
+
+@maintain_app.command("graph")
+def maintain_graph(
+    output_dir: Annotated[Path | None, typer.Option("--output-dir")] = None,
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+    sync_neo4j: Annotated[
+        bool,
+        typer.Option("--sync-neo4j/--no-sync-neo4j", help="Push projection to STRIDE Neo4j"),
+    ] = True,
+) -> None:
+    """Rebuild the chain↔technique galaxy (and optionally sync Neo4j)."""
+    paths = _paths(output_dir=output_dir, data_dir=data_dir)
+    config = AppConfig(paths=paths)
+    if not sync_neo4j:
+        config.neo4j.enabled = False
+    result = run_maintain_card(config, "technique_galaxy")
+    graph = result.get("graph") or result
+    # Keep CLI output readable
+    slim = {
+        k: graph[k]
+        for k in (
+            "built_at",
+            "counts",
+            "technique_frequency",
+            "rare_techniques",
+            "dark_matter_pairs",
+            "tactic_coverage",
+            "weak_tactics",
+            "neo4j",
+            "layouts",
+        )
+        if k in graph
+    }
+    typer.echo(json.dumps(slim, indent=2))
+
+
+@maintain_app.command("neo4j-status")
+def maintain_neo4j_status() -> None:
+    """Probe the dedicated STRIDE Neo4j (not TwinOps)."""
+    typer.echo(json.dumps(neo4j_status(), indent=2))
+
+
+@maintain_app.command("neo4j-sync")
+def maintain_neo4j_sync(
+    output_dir: Annotated[Path | None, typer.Option("--output-dir")] = None,
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+) -> None:
+    """Full rebuild of the Neo4j projection from the chain library."""
+    paths = _paths(output_dir=output_dir, data_dir=data_dir)
+    result = run_neo4j_sync(AppConfig(paths=paths))
+    typer.echo(json.dumps(result, indent=2))
+
+
+@maintain_app.command("neo4j-query")
+def maintain_neo4j_query(
+    name: Annotated[
+        str,
+        typer.Argument(help="Canned query id: " + ", ".join(sorted(CANNED_QUERIES))),
+    ],
+    chain_id: Annotated[str | None, typer.Option("--chain-id")] = None,
+) -> None:
+    """Run a canned Cypher analytics query against STRIDE Neo4j."""
+    params = {"chain_id": chain_id} if chain_id else None
+    typer.echo(json.dumps(canned_query(AppConfig().neo4j, name, params), indent=2))
+
+
+@maintain_app.command("clones")
+def maintain_clones(
+    threshold: Annotated[float, typer.Option("--threshold", min=0.1, max=1.0)] = 0.55,
+    output_dir: Annotated[Path | None, typer.Option("--output-dir")] = None,
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+) -> None:
+    """Scan the library for near-duplicate technique mixes."""
+    paths = _paths(output_dir=output_dir, data_dir=data_dir)
+    typer.echo(json.dumps(clone_pairs(paths, threshold=threshold), indent=2))
+
+
+@maintain_app.command("run")
+def maintain_run(
+    card: Annotated[
+        str,
+        typer.Argument(help="Card id: " + ", ".join(c["id"] for c in CARD_CATALOG)),
+    ],
+    steer: Annotated[str, typer.Option("--steer", help="Optional operator guidance")] = "",
+    max_jaccard: Annotated[float, typer.Option("--max-jaccard", min=0.1, max=0.9)] = 0.45,
+    threshold: Annotated[float, typer.Option("--threshold", min=0.1, max=1.0)] = 0.55,
+    web_spark: Annotated[bool, typer.Option("--web-spark/--no-web-spark")] = False,
+    aa_id: Annotated[str | None, typer.Option("--aa-id")] = None,
+    commit: Annotated[bool, typer.Option("--commit/--no-commit")] = False,
+    backend: BackendOption = None,
+    inference_url: UrlOption = None,
+    inference_model: ModelOption = None,
+    inference_api_key: KeyOption = None,
+    device: DeviceOption = None,
+    batch_size: BatchOption = None,
+    thinking: ThinkingOption = None,
+    reasoning_strength: ReasoningStrengthOption = None,
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+    prompts_dir: Annotated[Path | None, typer.Option("--prompts-dir")] = None,
+    output_dir: Annotated[Path | None, typer.Option("--output-dir")] = None,
+) -> None:
+    """Run one Maintain card (forge / autopsy / galaxy)."""
+    defaults = PathConfig()
+    config = AppConfig(
+        inference=_inference(
+            backend,
+            inference_url,
+            inference_api_key,
+            inference_model,
+            device,
+            batch_size,
+            thinking,
+            reasoning_strength,
+        ),
+        paths=PathConfig(
+            data_dir=data_dir or defaults.data_dir,
+            prompts_dir=prompts_dir or defaults.prompts_dir,
+            output_dir=output_dir or defaults.output_dir,
+        ),
+    )
+    result = run_maintain_card(
+        config,
+        card,
+        steer=steer,
+        max_jaccard=max_jaccard,
+        web_spark=web_spark,
+        aa_id=aa_id,
+        threshold=threshold,
+        commit=commit,
+    )
+    typer.echo(json.dumps(result, indent=2))
+
+
+@maintain_app.command("commit")
+def maintain_commit(
+    proposal: Annotated[Path, typer.Argument(help="Path to a forge proposal JSON")],
+    output_dir: Annotated[Path | None, typer.Option("--output-dir")] = None,
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+) -> None:
+    """Commit an accepted forge proposal into the attack-template library."""
+    paths = _paths(output_dir=output_dir, data_dir=data_dir)
+    result = commit_proposal_file(AppConfig(paths=paths), str(proposal))
+    typer.echo(json.dumps(result, indent=2))
 
 
 if __name__ == "__main__":

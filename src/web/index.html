@@ -70,12 +70,16 @@
           <span class="rail-kicker">05</span>
           <span>Intel</span>
         </button>
-        <button class="rail-item" data-target="reports-panel" type="button">
+        <button class="rail-item" data-target="maintain-panel" type="button">
           <span class="rail-kicker">06</span>
+          <span>Maintain</span>
+        </button>
+        <button class="rail-item" data-target="reports-panel" type="button">
+          <span class="rail-kicker">07</span>
           <span>Reports</span>
         </button>
         <button class="rail-item" data-target="activity-panel" type="button">
-          <span class="rail-kicker">07</span>
+          <span class="rail-kicker">08</span>
           <span>Activity</span>
         </button>
         <p class="rail-foot">STRIDE · DREAD · CVE<br />threat operations console</p>
@@ -105,7 +109,7 @@
           </div>
         </section>
 
-        <section id="apps-panel" class="panel">
+        <section id="apps-panel" class="panel view-page is-active">
           <div class="panel-header">
             <div>
               <p class="eyebrow">CMDB inventory</p>
@@ -138,7 +142,7 @@
           </div>
         </section>
 
-        <section id="navigator-panel" class="panel wide-panel">
+        <section id="navigator-panel" class="panel wide-panel view-page">
           <div class="panel-header">
             <div>
               <p class="eyebrow">Lineage</p>
@@ -156,7 +160,7 @@
           </div>
         </section>
 
-        <section id="model-panel" class="panel primary-panel">
+        <section id="model-panel" class="panel primary-panel view-page">
           <div class="panel-header">
             <div>
               <p class="eyebrow">Threat model workflow</p>
@@ -193,7 +197,7 @@
           </div>
         </section>
 
-        <section id="scenario-panel" class="panel">
+        <section id="scenario-panel" class="panel view-page">
           <div class="panel-header">
             <div>
               <p class="eyebrow">Scenario workflow</p>
@@ -238,7 +242,7 @@
           </div>
         </section>
 
-        <section id="intel-panel" class="panel wide-panel">
+        <section id="intel-panel" class="panel wide-panel view-page">
           <div class="panel-header">
             <div>
               <p class="eyebrow">Catalogs</p>
@@ -261,7 +265,110 @@
           </p>
         </section>
 
-        <section id="reports-panel" class="panel wide-panel">
+        <section id="maintain-panel" class="panel wide-panel view-page">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Studio</p>
+              <h2>Maintain</h2>
+            </div>
+            <div class="panel-actions">
+              <span id="maintain-neo4j-state" class="state-indicator">Neo4j</span>
+              <span id="maintain-provider-state" class="state-indicator">Idle</span>
+              <button id="maintain-neo4j-sync" class="button secondary" type="button">Sync Neo4j</button>
+              <button id="maintain-refresh-galaxy" class="button secondary" type="button">Refresh galaxy</button>
+            </div>
+          </div>
+          <p class="form-hint maintain-lead">
+            Playground-style cards for the attack-template library: forge novel chains with an LLM judge loop,
+            autopsy near-duplicates, and map the technique galaxy onto a <strong>dedicated Neo4j</strong>
+            (bolt://127.0.0.1:7688 — separate from TwinOps). Optional <em>steer</em> fields are hunches —
+            they never lower the novelty bar.
+          </p>
+
+          <div class="maintain-toolbar form-grid">
+            <label>
+              <span>Provider</span>
+              <select id="maintain-provider" name="provider"></select>
+            </label>
+            <label>
+              <span>Thinking</span>
+              <select id="maintain-thinking" name="thinking">
+                <option value="off">Off</option>
+                <option value="on">On</option>
+              </select>
+            </label>
+            <label id="maintain-reasoning-wrap">
+              <span>Reasoning strength</span>
+              <select id="maintain-reasoning-strength" name="reasoning_strength"></select>
+            </label>
+          </div>
+
+          <div id="maintain-card-groups" class="maintain-groups">
+            <div class="empty-state">Loading maintain cards…</div>
+          </div>
+
+          <div class="maintain-viz-toolbar">
+            <div class="segmented" role="tablist" aria-label="Graph view">
+              <button class="segment active" data-viz-mode="cooccurrence" type="button">Co-occurrence</button>
+              <button class="segment" data-viz-mode="bipartite" type="button">Bipartite</button>
+              <button class="segment" data-viz-mode="darkmatter" type="button">Dark matter</button>
+            </div>
+            <a id="maintain-neo4j-browser" class="button secondary" href="http://127.0.0.1:7475" target="_blank" rel="noreferrer">Open Neo4j Browser</a>
+          </div>
+
+          <div class="maintain-viz-grid">
+            <div class="detail-band maintain-viz-card maintain-viz-main">
+              <div class="panel-header tight">
+                <div>
+                  <p class="eyebrow">Observatory</p>
+                  <h2 id="maintain-viz-title">Technique co-occurrence</h2>
+                </div>
+                <span id="maintain-graph-counts" class="state-indicator">0 nodes</span>
+              </div>
+              <div class="galaxy-stage">
+                <svg id="maintain-galaxy" class="galaxy-svg" viewBox="0 0 720 460" role="img" aria-label="Attack technique graph"></svg>
+                <div id="maintain-graph-tooltip" class="graph-tooltip" hidden></div>
+              </div>
+              <p id="maintain-viz-caption" class="form-hint">Force-directed co-occurrence among frequent techniques. Edge weight = shared chains.</p>
+            </div>
+            <div class="detail-band maintain-viz-card">
+              <div class="panel-header tight">
+                <div>
+                  <p class="eyebrow">Coverage</p>
+                  <h2>Tactic bars</h2>
+                </div>
+              </div>
+              <div id="maintain-tactic-bars" class="tactic-bars"></div>
+              <div class="panel-header tight">
+                <div>
+                  <p class="eyebrow">Library × techniques</p>
+                  <h2>Chain heat grid</h2>
+                </div>
+              </div>
+              <div id="maintain-heatmap" class="heat-grid"></div>
+            </div>
+          </div>
+
+          <div class="maintain-query-band detail-band">
+            <div class="panel-header tight">
+              <div>
+                <p class="eyebrow">Neo4j Cypher</p>
+                <h2>Canned analytics</h2>
+              </div>
+              <div class="panel-actions">
+                <select id="maintain-canned-query"></select>
+                <button id="maintain-run-canned" class="button secondary" type="button">Run query</button>
+              </div>
+            </div>
+            <pre id="maintain-canned-result" class="report-preview maintain-canned-result">Pick a canned query — hub techniques, near-duplicates, dark matter, tactic coverage…</pre>
+          </div>
+
+          <div class="detail-band" id="maintain-result">
+            <div class="empty-state">Run a card — forge proposals, clone autopsy, and galaxy rebuilds land here</div>
+          </div>
+        </section>
+
+        <section id="reports-panel" class="panel wide-panel view-page">
           <div class="panel-header">
             <div>
               <p class="eyebrow">Output library</p>
@@ -294,7 +401,7 @@
           </div>
         </section>
 
-        <section id="activity-panel" class="panel activity-panel">
+        <section id="activity-panel" class="panel activity-panel view-page">
           <div class="panel-header">
             <div>
               <p class="eyebrow">Execution</p>
@@ -305,7 +412,7 @@
           <div id="job-list" class="job-list"></div>
         </section>
 
-        <section class="panel console-panel" aria-label="Live log">
+        <section id="console-panel" class="panel console-panel view-page" data-with-view="activity-panel" aria-label="Live log">
           <div class="console-header">
             <div>
               <p class="eyebrow">Live log</p>

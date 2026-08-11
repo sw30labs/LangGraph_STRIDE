@@ -4,6 +4,10 @@ const appState = {
   selectedJobId: null,
   selectedReportPath: null,
   lastJobStatuses: new Map(),
+  maintainCards: null,
+  maintainGraph: null,
+  lastMaintainResult: null,
+  maintainVizMode: "cooccurrence",
 };
 
 const $ = (id) => document.getElementById(id);
@@ -97,7 +101,7 @@ function syncThinkingControls(prefix) {
 
 function populateThinkingControls() {
   const defaults = thinkingConfig();
-  for (const prefix of ["model", "scenario"]) {
+  for (const prefix of ["model", "scenario", "maintain"]) {
     const thinking = $(`${prefix}-thinking`);
     const strength = $(`${prefix}-reasoning-strength`);
     if (!thinking || !strength) continue;
@@ -125,6 +129,9 @@ function thinkingPayload(prefix) {
 function populateProviderControls() {
   fillProviderSelect($("model-provider"), $("model-provider").value || appState.status.provider.default);
   fillProviderSelect($("scenario-provider"), $("scenario-provider").value || appState.status.provider.default);
+  if ($("maintain-provider")) {
+    fillProviderSelect($("maintain-provider"), $("maintain-provider").value || appState.status.provider.default);
+  }
   populateThinkingControls();
   const provider = providerById(appState.status.provider.default);
   const chip = $("default-provider");
@@ -132,6 +139,9 @@ function populateProviderControls() {
   chip.className = `status-chip ${provider?.ready ? "ready" : "warning"}`;
   updateProviderState("model-provider", "model-provider-state");
   updateProviderState("scenario-provider", "scenario-provider-state");
+  if ($("maintain-provider") && $("maintain-provider-state")) {
+    updateProviderState("maintain-provider", "maintain-provider-state");
+  }
 }
 
 function updateProviderState(selectId, stateId) {
@@ -142,7 +152,11 @@ function updateProviderState(selectId, stateId) {
     target.className = "state-indicator";
     return;
   }
-  target.textContent = provider.ready ? `${provider.label} ready` : `${provider.label} key missing`;
+  // I show the probe detail when not ready so 401 / unreachable is obvious.
+  target.textContent = provider.ready
+    ? `${provider.label} ready`
+    : `${provider.label}: ${provider.detail || "not ready"}`;
+  target.title = `${provider.base_url} · ${provider.model}`;
   target.className = `state-indicator ${provider.ready ? "ready" : "warning"}`;
 }
 
@@ -525,9 +539,535 @@ function renderConsole(job) {
   $("console-log").scrollTop = $("console-log").scrollHeight;
 }
 
-async function refreshStatus() {
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
+function fieldControlHtml(field, cardId) {
+  const id = `mc-${cardId}-${field.k}`;
+  if (field.type === "textarea") {
+    return `<label for="${id}">${escapeHtml(field.label)}
+      <textarea id="${id}" data-field="${escapeHtml(field.k)}" placeholder="${escapeHtml(field.ph || "")}"></textarea>
+    </label>`;
+  }
+  if (field.type === "checkbox") {
+    return `<label class="check-row" for="${id}">
+      <input id="${id}" data-field="${escapeHtml(field.k)}" type="checkbox" />
+      <span>${escapeHtml(field.label)}</span>
+    </label>`;
+  }
+  if (field.type === "aa_select") {
+    const options = (appState.status?.cmdb || [])
+      .map((row) => `<option value="${escapeHtml(row.aa_id)}">${escapeHtml(row.aa_id)} · ${escapeHtml(row.name)}</option>`)
+      .join("");
+    return `<label for="${id}">${escapeHtml(field.label)}
+      <select id="${id}" data-field="${escapeHtml(field.k)}">${options || '<option value="">No apps</option>'}</select>
+    </label>`;
+  }
+  if (field.type === "number") {
+    return `<label for="${id}">${escapeHtml(field.label)}
+      <input id="${id}" data-field="${escapeHtml(field.k)}" type="number"
+        min="${field.min ?? ""}" max="${field.max ?? ""}" step="${field.step ?? "any"}"
+        value="${field.value ?? ""}" />
+    </label>`;
+  }
+  return `<label for="${id}">${escapeHtml(field.label)}
+    <input id="${id}" data-field="${escapeHtml(field.k)}" type="text" placeholder="${escapeHtml(field.ph || "")}" />
+  </label>`;
+}
+
+function renderMaintainCards() {
+  const root = $("maintain-card-groups");
+  if (!root || !appState.maintainCards) return;
+  const { groups, cards } = appState.maintainCards;
+  const byGroup = new Map((groups || []).map((g) => [g.id, { ...g, cards: [] }]));
+  for (const card of cards || []) {
+    const bucket = byGroup.get(card.group) || {
+      id: card.group,
+      title: card.group,
+      sub: "",
+      cards: [],
+    };
+    bucket.cards.push(card);
+    byGroup.set(card.group, bucket);
+  }
+  root.replaceChildren();
+  for (const group of byGroup.values()) {
+    if (!group.cards.length) continue;
+    const section = document.createElement("div");
+    section.className = "pg-group";
+    section.innerHTML = `<div class="pg-group-head">
+      <span class="pg-group-title">${escapeHtml(group.title)}</span>
+      <span class="pg-group-sub">${escapeHtml(group.sub || "")}</span>
+    </div>`;
+    const grid = document.createElement("div");
+    grid.className = "maintain-card-grid";
+    for (const card of group.cards) {
+      const el = document.createElement("article");
+      el.className = "maintain-card";
+      el.dataset.cardId = card.id;
+      el.innerHTML = `
+        <div class="maintain-card-top">
+          <h3>${escapeHtml(card.name)}</h3>
+          <span class="card-tag ${card.llm ? "llm" : ""}">${card.llm ? "LLM + judge" : "offline"}</span>
+        </div>
+        <p>${escapeHtml(card.desc)}</p>
+        ${(card.fields || []).map((field) => fieldControlHtml(field, card.id)).join("")}
+        <button class="button primary" type="button" data-run-card="${escapeHtml(card.id)}">${escapeHtml(card.btn || "RUN")}</button>
+      `;
+      grid.appendChild(el);
+    }
+    section.appendChild(grid);
+    root.appendChild(section);
+  }
+}
+
+function collectCardFields(cardId) {
+  const card = document.querySelector(`.maintain-card[data-card-id="${cardId}"]`);
+  const payload = { card: cardId };
+  if (!card) return payload;
+  card.querySelectorAll("[data-field]").forEach((input) => {
+    const key = input.dataset.field;
+    if (input.type === "checkbox") {
+      payload[key] = input.checked;
+    } else if (input.type === "number") {
+      payload[key] = input.value === "" ? undefined : Number(input.value);
+    } else {
+      payload[key] = input.value;
+    }
+  });
+  return payload;
+}
+
+function updateNeo4jChip(neo) {
+  const chip = $("maintain-neo4j-state");
+  const link = $("maintain-neo4j-browser");
+  if (!chip) return;
+  if (!neo) {
+    chip.textContent = "Neo4j unknown";
+    chip.className = "state-indicator";
+    return;
+  }
+  if (link && neo.browser_url) link.href = neo.browser_url;
+  if (neo.ready || neo.synced) {
+    const c = neo.counts || {};
+    chip.textContent = `Neo4j · ${c.chains ?? "?"}c / ${c.techniques ?? "?"}t`;
+    chip.className = "state-indicator ready";
+    chip.title = `${neo.uri || ""} · ${neo.detail || "ok"} · synced ${neo.synced_at || "—"}`;
+  } else {
+    chip.textContent = `Neo4j · ${neo.detail || "offline"}`;
+    chip.className = "state-indicator warning";
+    chip.title = neo.uri || "";
+  }
+}
+
+function showGraphTooltip(event, html) {
+  const tip = $("maintain-graph-tooltip");
+  const stage = event.currentTarget?.closest?.(".galaxy-stage") || tip?.parentElement;
+  if (!tip || !stage) return;
+  tip.hidden = false;
+  tip.innerHTML = html;
+  const rect = stage.getBoundingClientRect();
+  tip.style.left = `${Math.min(event.clientX - rect.left + 12, rect.width - 180)}px`;
+  tip.style.top = `${Math.max(8, event.clientY - rect.top - 10)}px`;
+}
+
+function hideGraphTooltip() {
+  const tip = $("maintain-graph-tooltip");
+  if (tip) tip.hidden = true;
+}
+
+function renderForceLayout(svg, layout, { voidEdges = [] } = {}) {
+  const width = layout.width || 720;
+  const height = layout.height || 460;
+  const nodes = layout.nodes || [];
+  const edges = layout.edges || [];
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const maxW = Math.max(1, ...nodes.map((n) => n.weight || 1));
+
+  const edgeMarkup = edges
+    .map((edge) => {
+      const a = byId.get(edge.source);
+      const b = byId.get(edge.target);
+      if (!a || !b) return "";
+      const strong = (edge.weight || 1) >= 3 ? "strong" : "";
+      return `<line class="edge ${strong}" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" data-w="${edge.weight || 1}"/>`;
+    })
+    .join("");
+
+  const voidMarkup = voidEdges
+    .map((edge) => {
+      const a = byId.get(edge.source);
+      const b = byId.get(edge.target);
+      if (!a || !b) return "";
+      return `<line class="edge void" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"/>`;
+    })
+    .join("");
+
+  const nodeMarkup = nodes
+    .map((node) => {
+      const r = 4 + Math.min(10, ((node.weight || 1) / maxW) * 10);
+      const kind = node.kind === "chain" ? "node-chain" : "node-tech";
+      const hub = (node.weight || 0) >= maxW * 0.7 && node.kind !== "chain" ? "node-hub" : "";
+      const label = (node.label || node.id || "").slice(0, 22);
+      return `<g class="node" data-id="${escapeHtml(node.id)}" data-label="${escapeHtml(node.label || "")}" data-weight="${node.weight || 1}" data-kind="${escapeHtml(node.kind || "")}">
+        <circle class="${kind} ${hub}" cx="${node.x}" cy="${node.y}" r="${r}"/>
+        <text class="node-label" x="${node.x + r + 4}" y="${node.y + 3}">${escapeHtml(label)}</text>
+      </g>`;
+    })
+    .join("");
+
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.innerHTML = `${edgeMarkup}${voidMarkup}${nodeMarkup}`;
+  svg.querySelectorAll(".node").forEach((el) => {
+    el.addEventListener("mousemove", (event) => {
+      showGraphTooltip(
+        event,
+        `<strong>${escapeHtml(el.dataset.label || el.dataset.id)}</strong><br/>${escapeHtml(el.dataset.kind)} · weight ${escapeHtml(el.dataset.weight)}`
+      );
+    });
+    el.addEventListener("mouseleave", hideGraphTooltip);
+  });
+}
+
+function renderDarkMatterLayout(svg, graph) {
+  const pairs = (graph?.dark_matter_pairs || []).slice(0, 18);
+  const width = 720;
+  const height = Math.max(360, 40 + pairs.length * 22);
+  if (!pairs.length) {
+    svg.setAttribute("viewBox", `0 0 ${width} 200`);
+    svg.innerHTML = `<text x="24" y="40" class="node-label">No dark-matter pairs — library is small or fully connected</text>`;
+    return;
+  }
+  const left = pairs.map((p, i) => ({
+    id: `a:${p.a}`,
+    label: p.label_a || p.a,
+    x: 160,
+    y: 28 + i * 22,
+    weight: p.freq_a || 1,
+    kind: "technique",
+  }));
+  const right = pairs.map((p, i) => ({
+    id: `b:${p.b}`,
+    label: p.label_b || p.b,
+    x: 560,
+    y: 28 + i * 22,
+    weight: p.freq_b || 1,
+    kind: "technique",
+  }));
+  // dedupe nodes that appear multiple times
+  const nodes = [];
+  const seen = new Set();
+  for (const node of [...left, ...right]) {
+    if (seen.has(node.id)) continue;
+    seen.add(node.id);
+    nodes.push(node);
+  }
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  // re-average y for duplicates that were skipped — keep first
+  const edges = pairs.map((p) => ({
+    source: `a:${p.a}`,
+    target: `b:${p.b}`,
+    weight: 1,
+  }));
+  const edgeMarkup = edges
+    .map((edge) => {
+      const a = byId.get(edge.source);
+      const b = byId.get(edge.target);
+      if (!a || !b) return "";
+      return `<path class="edge void" d="M ${a.x + 8} ${a.y} C 320 ${a.y}, 400 ${b.y}, ${b.x - 8} ${b.y}"/>`;
+    })
+    .join("");
+  const nodeMarkup = nodes
+    .map((node) => {
+      const side = node.id.startsWith("a:") ? -1 : 1;
+      const labelX = node.x + side * 12;
+      const anchor = side < 0 ? "end" : "start";
+      return `<g class="node" data-label="${escapeHtml(node.label)}" data-weight="${node.weight}">
+        <circle class="node-tech" cx="${node.x}" cy="${node.y}" r="4.5"/>
+        <text class="node-label" text-anchor="${anchor}" x="${labelX}" y="${node.y + 3}">${escapeHtml((node.label || "").slice(0, 28))}</text>
+      </g>`;
+    })
+    .join("");
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.innerHTML = `${edgeMarkup}${nodeMarkup}
+    <text x="160" y="14" class="node-label" text-anchor="middle">technique A (rare)</text>
+    <text x="560" y="14" class="node-label" text-anchor="middle">technique B (never co-occurs)</text>`;
+}
+
+function renderGalaxy(graph) {
+  const svg = $("maintain-galaxy");
+  const counts = $("maintain-graph-counts");
+  const title = $("maintain-viz-title");
+  const caption = $("maintain-viz-caption");
+  if (!svg) return;
+  if (counts) {
+    counts.textContent = `${graph?.counts?.chains || 0} chains · ${graph?.counts?.techniques || 0} techs`;
+  }
+  updateNeo4jChip(graph?.neo4j);
+
+  const mode = appState.maintainVizMode || "cooccurrence";
+  if (mode === "bipartite") {
+    if (title) title.textContent = "Chain ↔ technique bipartite";
+    if (caption) {
+      caption.textContent = "Left: attack templates · Right: frequent techniques · edges = USES.";
+    }
+    const layout = graph?.layouts?.bipartite;
+    if (layout) renderForceLayout(svg, layout);
+    else svg.innerHTML = `<text x="24" y="40" class="node-label">No bipartite layout</text>`;
+    return;
+  }
+  if (mode === "darkmatter") {
+    if (title) title.textContent = "Dark-matter pairs";
+    if (caption) {
+      caption.textContent =
+        "Amber dashed links = techniques that appear in the library but never together — forge fuel.";
+    }
+    renderDarkMatterLayout(svg, graph);
+    return;
+  }
+  if (title) title.textContent = "Technique co-occurrence";
+  if (caption) {
+    caption.textContent =
+      "Force-directed layout of frequent techniques. Edge weight = shared chains. Gold = hub nodes.";
+  }
+  const layout = graph?.layouts?.cooccurrence;
+  if (layout) renderForceLayout(svg, layout);
+  else svg.innerHTML = `<text x="24" y="40" class="node-label">No co-occurrence layout</text>`;
+}
+
+function renderTacticBars(graph) {
+  const root = $("maintain-tactic-bars");
+  if (!root) return;
+  const rows = graph?.tactic_coverage || [];
+  if (!rows.length) {
+    root.innerHTML = '<div class="empty-state">No tactic coverage yet</div>';
+    return;
+  }
+  const max = Math.max(1, ...rows.map((row) => row.count || 0));
+  root.innerHTML = rows
+    .map((row) => {
+      const pct = Math.round(((row.count || 0) / max) * 100);
+      const blind = (row.count || 0) === 0;
+      return `<div class="tactic-row ${blind ? "blind" : ""}">
+        <span>${escapeHtml(row.tactic)}</span>
+        <div class="bar-track"><div class="bar-fill" style="width:${blind ? 4 : pct}%"></div></div>
+        <span>${row.count || 0}</span>
+      </div>`;
+    })
+    .join("");
+}
+
+function renderHeatmap(graph) {
+  const root = $("maintain-heatmap");
+  if (!root) return;
+  const heat = graph?.heatmap;
+  if (!heat?.techniques?.length || !heat?.chains?.length) {
+    root.innerHTML = '<div class="empty-state">Heatmap empty</div>';
+    return;
+  }
+  const head = heat.techniques
+    .map((tech) => `<th title="${escapeHtml(tech.label)}">${escapeHtml((tech.id || "").replace(/^name:/, "").slice(0, 8))}</th>`)
+    .join("");
+  const body = heat.chains
+    .map((chain) => {
+      const cells = (chain.cells || [])
+        .map((on) => `<td><div class="heat-cell ${on ? "on" : "off"}"></div></td>`)
+        .join("");
+      return `<tr><td class="row-label" title="${escapeHtml(chain.name)}">${escapeHtml((chain.name || "").slice(0, 18))}</td>${cells}</tr>`;
+    })
+    .join("");
+  root.innerHTML = `<table class="heat-table"><thead><tr><th class="row-label">chain</th>${head}</tr></thead><tbody>${body}</tbody></table>`;
+}
+
+function renderMaintainResult(result) {
+  const root = $("maintain-result");
+  if (!root) return;
+  if (!result) {
+    root.innerHTML = '<div class="empty-state">Run a card — forge proposals, clone autopsy, and galaxy rebuilds land here</div>';
+    return;
+  }
+  appState.lastMaintainResult = result;
+  if (result.graph) {
+    root.innerHTML = `<div class="detail-grid">
+      <div class="detail-item"><span>Card</span><strong>${escapeHtml(result.card || "technique_galaxy")}</strong></div>
+      <div class="detail-item"><span>Chains</span><strong>${result.graph.counts?.chains ?? "—"}</strong></div>
+      <div class="detail-item"><span>Techniques</span><strong>${result.graph.counts?.techniques ?? "—"}</strong></div>
+      <div class="detail-item"><span>Artifact</span><strong>${escapeHtml(result.artifact_path || "—")}</strong></div>
+    </div>
+    <p class="form-hint">Galaxy rebuilt. Dark-matter pairs: ${(result.graph.dark_matter_pairs || []).length}. Clone the Maintain CLI for deeper JSON.</p>`;
+    return;
+  }
+  if (result.pairs) {
+    const rows = (result.pairs || [])
+      .slice(0, 12)
+      .map(
+        (pair) => `<div class="proposal-step">
+          <strong>${escapeHtml(pair.a_name)}</strong> ↔ <strong>${escapeHtml(pair.b_name)}</strong>
+          · Jaccard ${pair.jaccard} · ${escapeHtml(pair.severity)}
+          · shared ${pair.shared_count}
+        </div>`
+      )
+      .join("");
+    root.innerHTML = `<div class="detail-grid">
+      <div class="detail-item"><span>Card</span><strong>clone_autopsy</strong></div>
+      <div class="detail-item"><span>Pairs</span><strong>${result.pair_count ?? result.pairs.length}</strong></div>
+      <div class="detail-item"><span>Threshold</span><strong>${result.threshold}</strong></div>
+      <div class="detail-item"><span>Artifact</span><strong>${escapeHtml(result.artifact_path || "—")}</strong></div>
+    </div>
+    <div class="proposal-steps">${rows || '<div class="empty-state">No near-duplicates above threshold</div>'}</div>`;
+    return;
+  }
+  // Forge proposal (from job log we may only have toast; full result via polling artifact is future work)
+  const proposal = result.proposal;
+  const steps = (proposal?.steps || [])
+    .map((step) => {
+      const tid = step.technique_id ? ` (${step.technique_id})` : "";
+      return `<div class="proposal-step"><strong>${escapeHtml(step.tactic || "step")}</strong> · ${escapeHtml(step.name || step.raw || "")}${escapeHtml(tid)}</div>`;
+    })
+    .join("");
+  const accepted = result.accepted ? "ACCEPTED" : "REJECTED / incomplete";
+  root.innerHTML = `<div class="detail-grid">
+      <div class="detail-item"><span>Card</span><strong>${escapeHtml(result.card || "forge")}</strong></div>
+      <div class="detail-item"><span>Verdict</span><strong>${accepted}</strong></div>
+      <div class="detail-item"><span>Jaccard gate</span><strong>${result.gate?.max_jaccard ?? "—"}</strong></div>
+      <div class="detail-item"><span>Artifact</span><strong>${escapeHtml(result.artifact_path || "—")}</strong></div>
+    </div>
+    <p class="form-hint">${escapeHtml(result.novelty_thesis || result.judgment?.summary || "")}</p>
+    <h3 style="margin:12px 0 0;font-size:14px;color:#fff">${escapeHtml(proposal?.name || "No proposal")}</h3>
+    <p class="form-hint">${escapeHtml(proposal?.description || "")}</p>
+    <div class="proposal-steps">${steps || ""}</div>
+    ${
+      result.accepted && result.artifact_path
+        ? `<div class="panel-actions" style="padding:12px 0 0">
+            <button class="button primary" type="button" id="maintain-commit-proposal">Commit to library</button>
+          </div>`
+        : ""
+    }`;
+  $("maintain-commit-proposal")?.addEventListener("click", () => {
+    fetchJson("/api/maintain/commit", {
+      method: "POST",
+      body: JSON.stringify({ path: result.artifact_path }),
+    })
+      .then(() => {
+        showToast("Proposal committed to attack templates");
+        return refreshStatus();
+      })
+      .then(() => loadMaintainGraph())
+      .catch((error) => showToast(error.message));
+  });
+}
+
+async function loadMaintainCards() {
+  appState.maintainCards = await fetchJson("/api/maintain/cards");
+  renderMaintainCards();
+}
+
+async function loadMaintainGraph() {
+  appState.maintainGraph = await fetchJson("/api/maintain/graph");
+  renderGalaxy(appState.maintainGraph);
+  renderTacticBars(appState.maintainGraph);
+  renderHeatmap(appState.maintainGraph);
+  updateNeo4jChip(appState.maintainGraph?.neo4j);
+}
+
+async function loadCannedQueryList() {
+  const select = $("maintain-canned-query");
+  if (!select) return;
+  try {
+    const payload = await fetchJson("/api/maintain/neo4j/queries");
+    select.replaceChildren();
+    for (const row of payload.queries || []) {
+      const option = document.createElement("option");
+      option.value = row.id;
+      option.textContent = row.title || row.id;
+      select.appendChild(option);
+    }
+  } catch {
+    select.innerHTML = '<option value="">Neo4j queries unavailable</option>';
+  }
+}
+
+async function runCannedQuery() {
+  const name = $("maintain-canned-query")?.value;
+  const out = $("maintain-canned-result");
+  if (!name || !out) return;
+  out.textContent = "Running…";
+  try {
+    const payload = await fetchJson(`/api/maintain/neo4j/query/${encodeURIComponent(name)}`);
+    out.textContent = JSON.stringify(payload, null, 2);
+  } catch (error) {
+    out.textContent = error.message;
+  }
+}
+
+async function runMaintainCard(cardId) {
+  const body = {
+    ...collectCardFields(cardId),
+    provider: $("maintain-provider")?.value,
+    ...thinkingPayload("maintain"),
+  };
+  // Offline cards can run synchronously for instant viz; forges go through jobs.
+  if (cardId === "technique_galaxy") {
+    const graph = await fetchJson("/api/maintain/graph");
+    appState.maintainGraph = graph;
+    renderGalaxy(graph);
+    renderTacticBars(graph);
+    renderHeatmap(graph);
+    renderMaintainResult({ card: "technique_galaxy", graph, accepted: true });
+    showToast("Technique galaxy refreshed");
+    return;
+  }
+  if (cardId === "clone_autopsy") {
+    const threshold = body.threshold ?? 0.55;
+    const pairs = await fetchJson(`/api/maintain/clones?threshold=${encodeURIComponent(threshold)}`);
+    // Also kick the CLI job so an artifact lands under output/maintain/
+    await submitJob("/api/jobs/maintain", body);
+    renderMaintainResult({
+      card: "clone_autopsy",
+      pairs,
+      pair_count: pairs.length,
+      threshold,
+      accepted: true,
+    });
+    return;
+  }
+  await submitJob("/api/jobs/maintain", body);
+  $("maintain-result").innerHTML = `<div class="empty-state">Forge running as background job — watch Activity / live log. Artifact lands in output/maintain/</div>`;
+  // Jump operator to activity so the Ralph loop is visible
+  document.querySelector('[data-target="activity-panel"]')?.click();
+}
+
+function isUserEditing() {
+  // Polling must not rebuild DOM under an active text field — that steals focus
+  // and wipes in-progress steer / CMDB / number input.
+  const el = document.activeElement;
+  if (!el || el === document.body) return false;
+  const tag = (el.tagName || "").toLowerCase();
+  if (tag === "textarea") return true;
+  if (tag === "select") return true;
+  if (tag === "input") {
+    const type = (el.type || "text").toLowerCase();
+    return !["button", "submit", "checkbox", "radio", "file", "reset", "image"].includes(type);
+  }
+  return Boolean(el.isContentEditable);
+}
+
+async function refreshStatus(options = {}) {
+  const { force = false } = options;
+  const editing = !force && isUserEditing();
   appState.status = await fetchJson("/api/status");
   updateMetrics();
+  // Always keep job/console fresh — those nodes are not under the caret.
+  renderJobs();
+  if (editing) {
+    // Leave selects, tables, maintain cards, and form values alone while typing.
+    return;
+  }
   populateProviderControls();
   populatecmdb();
   populateTemplates();
@@ -536,7 +1076,8 @@ async function refreshStatus() {
   renderNavigator();
   renderIntelCards();
   renderReports();
-  renderJobs();
+  // Maintain cards are static catalog UI with free-text steers — build once
+  // in loadMaintainCards(), never on the poll tick.
 }
 
 async function submitJob(url, body) {
@@ -551,15 +1092,48 @@ async function submitJob(url, body) {
 
 function bindEvents() {
   $("refresh").addEventListener("click", () => {
-    refreshStatus().catch((error) => showToast(error.message));
+    refreshStatus({ force: true }).catch((error) => showToast(error.message));
   });
 
   $("aa-id").addEventListener("change", rendercmdbDetail);
   $("attack-template").addEventListener("change", renderTechniques);
   $("model-provider").addEventListener("change", () => updateProviderState("model-provider", "model-provider-state"));
   $("scenario-provider").addEventListener("change", () => updateProviderState("scenario-provider", "scenario-provider-state"));
+  $("maintain-provider")?.addEventListener("change", () => updateProviderState("maintain-provider", "maintain-provider-state"));
   $("model-thinking").addEventListener("change", () => syncThinkingControls("model"));
   $("scenario-thinking").addEventListener("change", () => syncThinkingControls("scenario"));
+  $("maintain-thinking")?.addEventListener("change", () => syncThinkingControls("maintain"));
+
+  $("maintain-card-groups")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-run-card]");
+    if (!button) return;
+    runMaintainCard(button.dataset.runCard).catch((error) => showToast(error.message));
+  });
+  $("maintain-refresh-galaxy")?.addEventListener("click", () => {
+    loadMaintainGraph()
+      .then(() => showToast("Galaxy refreshed + Neo4j sync attempted"))
+      .catch((error) => showToast(error.message));
+  });
+  $("maintain-neo4j-sync")?.addEventListener("click", () => {
+    fetchJson("/api/maintain/neo4j/sync", { method: "POST", body: "{}" })
+      .then((result) => {
+        updateNeo4jChip(result.status || result);
+        showToast(result.synced ? "Neo4j projection rebuilt" : result.detail || "Neo4j sync failed");
+        return loadMaintainGraph();
+      })
+      .catch((error) => showToast(error.message));
+  });
+  $("maintain-run-canned")?.addEventListener("click", () => {
+    runCannedQuery().catch((error) => showToast(error.message));
+  });
+  document.querySelectorAll("[data-viz-mode]").forEach((button) => {
+    button.addEventListener("click", () => {
+      document.querySelectorAll("[data-viz-mode]").forEach((item) => item.classList.remove("active"));
+      button.classList.add("active");
+      appState.maintainVizMode = button.dataset.vizMode;
+      if (appState.maintainGraph) renderGalaxy(appState.maintainGraph);
+    });
+  });
 
   $("model-form").addEventListener("submit", (event) => {
     event.preventDefault();
@@ -594,9 +1168,15 @@ function bindEvents() {
 
   document.querySelectorAll(".rail-item").forEach((button) => {
     button.addEventListener("click", () => {
+      const targetId = button.dataset.target;
+      if (!targetId) return;
       document.querySelectorAll(".rail-item").forEach((item) => item.classList.remove("active"));
       button.classList.add("active");
-      $(button.dataset.target).scrollIntoView({ behavior: "smooth", block: "start" });
+      document.querySelectorAll(".view-page").forEach((page) => {
+        const active = page.id === targetId || page.dataset.withView === targetId;
+        page.classList.toggle("is-active", active);
+      });
+      window.scrollTo({ top: 0, behavior: "auto" });
     });
   });
 
@@ -669,12 +1249,15 @@ function bindEvents() {
 }
 
 // I poll faster while jobs run, slower when idle, and pause when the tab is hidden.
+// While the operator is typing, refreshStatus stays soft (jobs/metrics only).
 let pollTimer = null;
 function schedulePoll() {
   if (pollTimer) window.clearTimeout(pollTimer);
   if (document.hidden) return;
   const running = (appState.status?.jobs || []).some((job) => job.status === "running");
-  const delay = running ? 2500 : 12000;
+  const editing = isUserEditing();
+  // Don't hammer the DOM while a steer textarea is focused.
+  const delay = editing ? 15000 : running ? 2500 : 12000;
   pollTimer = window.setTimeout(() => {
     refreshStatus()
       .catch(() => {})
@@ -692,6 +1275,9 @@ document.addEventListener("visibilitychange", () => {
 
 bindEvents();
 refreshStatus()
+  .then(() => loadMaintainCards())
+  .then(() => loadCannedQueryList())
+  .then(() => loadMaintainGraph())
   .then(schedulePoll)
   .catch((error) => {
     showToast(error.message);

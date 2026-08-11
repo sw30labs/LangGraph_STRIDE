@@ -1,0 +1,44 @@
+# Dedicated attack-template graph for LangGraph STRIDE.
+# Intentionally separate from TwinOps Neo4j (7474/7687).
+#
+#   docker compose -f compose.neo4j.yaml up -d
+#   Browser:  http://127.0.0.1:7475  (neo4j / stride-graph-dev)
+#   Bolt:     bolt://127.0.0.1:7688
+#
+# Override auth with STRIDE_NEO4J_PASSWORD before first boot
+# (Neo4j only honors NEO4J_AUTH on an empty data volume).
+
+name: langgraph-stride-neo4j
+
+services:
+  neo4j:
+    image: neo4j:5-community
+    container_name: stride-neo4j
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:7475:7474"
+      - "127.0.0.1:7688:7687"
+    environment:
+      NEO4J_AUTH: neo4j/${STRIDE_NEO4J_PASSWORD:-stride-graph-dev}
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*
+      NEO4J_dbms_security_procedures_allowlist: apoc.*
+      NEO4J_server_memory_heap_initial__size: 512m
+      NEO4J_server_memory_heap_max__size: 1G
+      NEO4J_server_memory_pagecache_size: 512m
+      # Keep browser happy when published on a non-default host port.
+      NEO4J_server_bolt_advertised__address: localhost:7688
+      NEO4J_server_http_advertised__address: localhost:7475
+    volumes:
+      - stride_neo4j_data:/data
+      - stride_neo4j_logs:/logs
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 25s
+
+volumes:
+  stride_neo4j_data:
+  stride_neo4j_logs:
