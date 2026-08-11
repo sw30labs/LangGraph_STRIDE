@@ -50,7 +50,11 @@
     <div class="shell">
       <aside class="rail" aria-label="Workflow navigation">
         <p class="rail-label">Console</p>
-        <button class="rail-item active" data-target="apps-panel" type="button">
+        <button class="rail-item active" data-target="cockpit-panel" type="button">
+          <span class="rail-kicker">00</span>
+          <span>Cockpit</span>
+        </button>
+        <button class="rail-item" data-target="apps-panel" type="button">
           <span class="rail-kicker">01</span>
           <span>Applications</span>
         </button>
@@ -86,30 +90,104 @@
       </aside>
 
       <main class="workspace-grid">
-        <section class="summary-strip" aria-label="System summary">
-          <div class="metric">
-            <span class="metric-label">Applications</span>
-            <strong id="metric-cmdb">0</strong>
+        <section id="cockpit-panel" class="panel wide-panel view-page is-active cockpit-page">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Home</p>
+              <h2>Cockpit</h2>
+            </div>
+            <div class="panel-actions">
+              <span id="maintain-neo4j-state" class="state-indicator">Neo4j</span>
+              <button id="maintain-neo4j-sync" class="button secondary" type="button">Sync Neo4j</button>
+              <button id="maintain-refresh-galaxy" class="button secondary" type="button">Refresh observatory</button>
+            </div>
           </div>
-          <div class="metric">
-            <span class="metric-label">Attack templates</span>
-            <strong id="metric-templates">0</strong>
+          <p class="form-hint maintain-lead">
+            Operations overview: inventory KPIs, technique galaxy, tactic coverage, and chain heatmaps.
+            Workflow pages stay clean — forge and edit live under their own console options.
+          </p>
+
+          <section class="summary-strip" aria-label="System summary">
+            <div class="metric">
+              <span class="metric-label">Applications</span>
+              <strong id="metric-cmdb">0</strong>
+            </div>
+            <div class="metric">
+              <span class="metric-label">Attack templates</span>
+              <strong id="metric-templates">0</strong>
+            </div>
+            <div class="metric">
+              <span class="metric-label">Threat models</span>
+              <strong id="metric-stride">0</strong>
+            </div>
+            <div class="metric">
+              <span class="metric-label">Scenarios</span>
+              <strong id="metric-scenarios">0</strong>
+            </div>
+            <div class="metric">
+              <span class="metric-label">NVD CVEs</span>
+              <strong id="metric-cves">0</strong>
+            </div>
+          </section>
+
+          <div class="maintain-viz-toolbar">
+            <div class="segmented" role="tablist" aria-label="Graph view">
+              <button class="segment active" data-viz-mode="cooccurrence" type="button">Co-occurrence</button>
+              <button class="segment" data-viz-mode="bipartite" type="button">Bipartite</button>
+              <button class="segment" data-viz-mode="darkmatter" type="button">Dark matter</button>
+            </div>
+            <a id="maintain-neo4j-browser" class="button secondary" href="http://127.0.0.1:7475" target="_blank" rel="noreferrer">Open Neo4j Browser</a>
           </div>
-          <div class="metric">
-            <span class="metric-label">Threat models</span>
-            <strong id="metric-stride">0</strong>
+
+          <div class="maintain-viz-grid">
+            <div class="detail-band maintain-viz-card maintain-viz-main">
+              <div class="panel-header tight">
+                <div>
+                  <p class="eyebrow">Observatory</p>
+                  <h2 id="maintain-viz-title">Technique co-occurrence</h2>
+                </div>
+                <span id="maintain-graph-counts" class="state-indicator">0 nodes</span>
+              </div>
+              <div class="galaxy-stage">
+                <svg id="maintain-galaxy" class="galaxy-svg" viewBox="0 0 720 460" role="img" aria-label="Attack technique graph"></svg>
+                <div id="maintain-graph-tooltip" class="graph-tooltip" hidden></div>
+              </div>
+              <p id="maintain-viz-caption" class="form-hint">Force-directed co-occurrence among frequent techniques. Edge weight = shared chains.</p>
+            </div>
+            <div class="detail-band maintain-viz-card">
+              <div class="panel-header tight">
+                <div>
+                  <p class="eyebrow">Coverage</p>
+                  <h2>Tactic bars</h2>
+                </div>
+              </div>
+              <div id="maintain-tactic-bars" class="tactic-bars"></div>
+              <div class="panel-header tight">
+                <div>
+                  <p class="eyebrow">Library × techniques</p>
+                  <h2>Chain heat grid</h2>
+                </div>
+              </div>
+              <div id="maintain-heatmap" class="heat-grid"></div>
+            </div>
           </div>
-          <div class="metric">
-            <span class="metric-label">Scenarios</span>
-            <strong id="metric-scenarios">0</strong>
-          </div>
-          <div class="metric">
-            <span class="metric-label">NVD CVEs</span>
-            <strong id="metric-cves">0</strong>
+
+          <div class="maintain-query-band detail-band">
+            <div class="panel-header tight">
+              <div>
+                <p class="eyebrow">Neo4j Cypher</p>
+                <h2>Canned analytics</h2>
+              </div>
+              <div class="panel-actions">
+                <select id="maintain-canned-query"></select>
+                <button id="maintain-run-canned" class="button secondary" type="button">Run query</button>
+              </div>
+            </div>
+            <pre id="maintain-canned-result" class="report-preview maintain-canned-result">Pick a canned query — hub techniques, near-duplicates, dark matter, tactic coverage…</pre>
           </div>
         </section>
 
-        <section id="apps-panel" class="panel view-page is-active">
+        <section id="apps-panel" class="panel view-page">
           <div class="panel-header">
             <div>
               <p class="eyebrow">CMDB inventory</p>
@@ -257,12 +335,33 @@
             <button id="intel-seed-nvd" class="button secondary" type="button">Seed demo CVEs</button>
             <button id="intel-update-nvd" class="button secondary" type="button">Update NVD (online)</button>
             <button id="intel-update-mitre" class="button secondary" type="button">Update MITRE (online)</button>
+            <button id="intel-update-cti-kev" class="button secondary" type="button">Update CTI · CISA KEV</button>
           </div>
           <p class="form-hint">
             Offline ingest stays first-class: use
-            <code>python -m src.cli intel ingest-nvd|ingest-mitre|ingest-cti</code>
+            <code>python -m src.cli intel ingest-nvd|ingest-mitre|ingest-cti|ingest-kev</code>
             on air-gapped boxes. Online buttons start background jobs.
+            <strong>CISA KEV</strong> is the free public Known Exploited Vulnerabilities catalog
+            (no API key) → CTI packs under the workspace.
           </p>
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Workspace</p>
+              <h2>CTI packs</h2>
+            </div>
+            <input id="cti-filter" type="text" placeholder="Filter packs…" />
+          </div>
+          <div class="split-layout">
+            <div class="table-shell compact">
+              <table>
+                <thead>
+                  <tr><th>Pack</th><th>Techniques</th></tr>
+                </thead>
+                <tbody id="cti-packs-table"></tbody>
+              </table>
+            </div>
+            <pre id="cti-pack-preview" class="report-preview">Select a pack</pre>
+          </div>
         </section>
 
         <section id="maintain-panel" class="panel wide-panel view-page">
@@ -272,17 +371,13 @@
               <h2>Maintain</h2>
             </div>
             <div class="panel-actions">
-              <span id="maintain-neo4j-state" class="state-indicator">Neo4j</span>
               <span id="maintain-provider-state" class="state-indicator">Idle</span>
-              <button id="maintain-neo4j-sync" class="button secondary" type="button">Sync Neo4j</button>
-              <button id="maintain-refresh-galaxy" class="button secondary" type="button">Refresh galaxy</button>
             </div>
           </div>
           <p class="form-hint maintain-lead">
-            Playground-style cards for the attack-template library: forge novel chains with an LLM judge loop,
-            autopsy near-duplicates, and map the technique galaxy onto a <strong>dedicated Neo4j</strong>
-            (bolt://127.0.0.1:7688 — separate from TwinOps). Optional <em>steer</em> fields are hunches —
-            they never lower the novelty bar.
+            Playground-style cards for the attack-template library: forge novel chains with an LLM judge loop
+            and autopsy near-duplicates. Optional <em>steer</em> fields are hunches — they never lower the
+            novelty bar. Observatory diagrams live on <strong>Cockpit</strong>.
           </p>
 
           <div class="maintain-toolbar form-grid">
@@ -307,64 +402,8 @@
             <div class="empty-state">Loading maintain cards…</div>
           </div>
 
-          <div class="maintain-viz-toolbar">
-            <div class="segmented" role="tablist" aria-label="Graph view">
-              <button class="segment active" data-viz-mode="cooccurrence" type="button">Co-occurrence</button>
-              <button class="segment" data-viz-mode="bipartite" type="button">Bipartite</button>
-              <button class="segment" data-viz-mode="darkmatter" type="button">Dark matter</button>
-            </div>
-            <a id="maintain-neo4j-browser" class="button secondary" href="http://127.0.0.1:7475" target="_blank" rel="noreferrer">Open Neo4j Browser</a>
-          </div>
-
-          <div class="maintain-viz-grid">
-            <div class="detail-band maintain-viz-card maintain-viz-main">
-              <div class="panel-header tight">
-                <div>
-                  <p class="eyebrow">Observatory</p>
-                  <h2 id="maintain-viz-title">Technique co-occurrence</h2>
-                </div>
-                <span id="maintain-graph-counts" class="state-indicator">0 nodes</span>
-              </div>
-              <div class="galaxy-stage">
-                <svg id="maintain-galaxy" class="galaxy-svg" viewBox="0 0 720 460" role="img" aria-label="Attack technique graph"></svg>
-                <div id="maintain-graph-tooltip" class="graph-tooltip" hidden></div>
-              </div>
-              <p id="maintain-viz-caption" class="form-hint">Force-directed co-occurrence among frequent techniques. Edge weight = shared chains.</p>
-            </div>
-            <div class="detail-band maintain-viz-card">
-              <div class="panel-header tight">
-                <div>
-                  <p class="eyebrow">Coverage</p>
-                  <h2>Tactic bars</h2>
-                </div>
-              </div>
-              <div id="maintain-tactic-bars" class="tactic-bars"></div>
-              <div class="panel-header tight">
-                <div>
-                  <p class="eyebrow">Library × techniques</p>
-                  <h2>Chain heat grid</h2>
-                </div>
-              </div>
-              <div id="maintain-heatmap" class="heat-grid"></div>
-            </div>
-          </div>
-
-          <div class="maintain-query-band detail-band">
-            <div class="panel-header tight">
-              <div>
-                <p class="eyebrow">Neo4j Cypher</p>
-                <h2>Canned analytics</h2>
-              </div>
-              <div class="panel-actions">
-                <select id="maintain-canned-query"></select>
-                <button id="maintain-run-canned" class="button secondary" type="button">Run query</button>
-              </div>
-            </div>
-            <pre id="maintain-canned-result" class="report-preview maintain-canned-result">Pick a canned query — hub techniques, near-duplicates, dark matter, tactic coverage…</pre>
-          </div>
-
           <div class="detail-band" id="maintain-result">
-            <div class="empty-state">Run a card — forge proposals, clone autopsy, and galaxy rebuilds land here</div>
+            <div class="empty-state">Run a card — forge proposals and clone autopsy land here</div>
           </div>
         </section>
 

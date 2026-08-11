@@ -312,11 +312,19 @@ select {
   padding: 24px 26px 60px;
 }
 
-/* ── KPI metric tiles ───────────────────────────── */
+/* ── KPI metric tiles (Cockpit only) ─────────────── */
+.cockpit-page {
+  padding-bottom: 8px;
+}
+
+.cockpit-page > .summary-strip {
+  margin: 4px 20px 16px;
+}
+
 .summary-strip {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 16px;
 }
 
@@ -1076,7 +1084,7 @@ tbody tr.selected td {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 0 20px 12px;
+  padding: 4px 20px 12px;
 }
 
 .maintain-viz-toolbar a.button {

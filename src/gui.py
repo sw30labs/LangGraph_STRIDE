@@ -28,8 +28,10 @@ from src.config import (
 from src.export_pdf import export_artifact_pdf
 from src.intel.cti import (
     delete_cti_pack,
+    import_cisa_kev_file,
     ingest_cti_pack,
     list_cti_packs,
+    update_cisa_kev_online,
     upsert_cti_pack,
 )
 from src.intel.manifest import intel_status
@@ -199,7 +201,10 @@ def _probe_provider(base_url: str, api_key: str) -> tuple[bool, str]:
         with httpx.Client(timeout=0.8, trust_env=False) as client:
             response = client.get(url, headers={"Authorization": f"Bearer {api_key}"})
         if response.status_code == 401:
-            return False, "API key rejected (401) — check MLX_API_KEY / OPENAI_API_KEY / VLLM_API_KEY"
+            return (
+                False,
+                "API key rejected (401) — check MLX_API_KEY / OPENAI_API_KEY / VLLM_API_KEY",
+            )
         if response.status_code >= 400:
             return False, f"Endpoint returned HTTP {response.status_code}"
         return True, "ok"
@@ -308,8 +313,8 @@ def build_intel_job(data: dict[str, Any]) -> Job:
     """Background CLI job for long-running online intel updates."""
     catalog = str(data.get("catalog") or "").strip().lower()
     mode = str(data.get("mode") or "online").strip().lower()
-    if catalog not in {"nvd", "mitre"}:
-        raise ValueError("catalog must be nvd or mitre")
+    if catalog not in {"nvd", "mitre", "cti", "kev"}:
+        raise ValueError("catalog must be nvd, mitre, cti, or kev")
     if mode not in {"online", "offline"}:
         raise ValueError("mode must be online or offline")
     command = [sys.executable, "-m", "src.cli", "intel"]
@@ -324,11 +329,24 @@ def build_intel_job(data: dict[str, Any]) -> Job:
         command.extend(["ingest-nvd", str(ensure_repo_file(source))])
     elif catalog == "mitre" and mode == "online":
         command.append("update-mitre")
-    else:
+    elif catalog == "mitre" and mode == "offline":
         source = str(data.get("path") or "").strip()
         if not source:
             raise ValueError("path is required for offline MITRE ingest")
         command.extend(["ingest-mitre", str(ensure_repo_file(source))])
+    elif catalog in {"cti", "kev"} and mode == "online":
+        command.append("update-cti-kev")
+        if data.get("recent") is not None:
+            command.extend(["--recent", str(int(data["recent"]))])
+        if data.get("ransomware") is not None:
+            command.extend(["--ransomware", str(int(data["ransomware"]))])
+    elif catalog in {"cti", "kev"} and mode == "offline":
+        source = str(data.get("path") or "").strip()
+        if not source:
+            raise ValueError("path is required for offline KEV ingest")
+        command.extend(["ingest-kev", str(ensure_repo_file(source))])
+    else:
+        raise ValueError(f"Unsupported intel job: catalog={catalog} mode={mode}")
     command.extend(["--output-dir", str(CONFIG.paths.output_dir)])
     return start_job(f"intel-{catalog}-{mode}", command)
 
@@ -668,7 +686,7 @@ class GuiHandler(BaseHTTPRequestHandler):
                 # Synchronous small ops or background job for online pulls
                 catalog = str(data.get("catalog") or "").strip().lower()
                 mode = str(data.get("mode") or "online").strip().lower()
-                if mode == "online" and catalog in {"nvd", "mitre"}:
+                if mode == "online" and catalog in {"nvd", "mitre", "cti", "kev"}:
                     if data.get("background", True):
                         self.send_json(build_intel_job(data).snapshot(), HTTPStatus.ACCEPTED)
                     elif catalog == "nvd":
@@ -678,10 +696,24 @@ class GuiHandler(BaseHTTPRequestHandler):
                                 max_pages=int(data.get("max_pages") or 2),
                             )
                         )
-                    else:
+                    elif catalog == "mitre":
                         self.send_json(update_mitre_online(CONFIG.paths))
+                    else:
+                        self.send_json(
+                            update_cisa_kev_online(
+                                CONFIG.paths,
+                                recent_limit=int(data.get("recent") or 40),
+                                ransomware_limit=int(data.get("ransomware") or 25),
+                            )
+                        )
+                elif mode == "offline" and catalog in {"cti", "kev"} and data.get("path"):
+                    self.send_json(
+                        import_cisa_kev_file(CONFIG.paths, ensure_repo_file(str(data["path"])))
+                    )
                 else:
-                    self.send_json(build_intel_job({**data, "mode": mode}).snapshot(), HTTPStatus.ACCEPTED)
+                    self.send_json(
+                        build_intel_job({**data, "mode": mode}).snapshot(), HTTPStatus.ACCEPTED
+                    )
             elif parsed.path == "/api/cti":
                 self.send_json(upsert_cti_pack(CONFIG.paths, data), HTTPStatus.CREATED)
             elif parsed.path == "/api/export/pdf":

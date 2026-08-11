@@ -164,6 +164,9 @@ python -m src.cli intel update-mitre                      # needs network
 python -m src.cli intel search-mitre --q T1190
 python -m src.cli intel ingest-cti path/to/pack.json
 python -m src.cli intel list-cti
+python -m src.cli intel upsert-cti --title "Pack" --techniques T1190,T1059
+python -m src.cli intel ingest-kev path/to/known_exploited_vulnerabilities.json
+python -m src.cli intel update-cti-kev --recent 40 --ransomware 25  # needs network; no API key
 
 # PDF export from a saved assessment or scenario JSON
 python -m src.cli export-pdf --json-file output/stride/security_assessment_AA123456_TIMESTAMP.json

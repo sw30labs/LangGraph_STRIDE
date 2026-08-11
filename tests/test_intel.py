@@ -2,15 +2,19 @@ import json
 from pathlib import Path
 
 import httpx
-import pytest
 
-from src.config import PathConfig
-from src.intel.cti import ingest_cti_pack, list_cti_packs, matching_cti_packs
+from src.config import AppConfig, PathConfig, build_inference_config
+from src.intel.cti import (
+    import_cisa_kev_file,
+    ingest_cti_pack,
+    list_cti_packs,
+    matching_cti_packs,
+    update_cisa_kev_online,
+)
 from src.intel.manifest import intel_status
 from src.intel.mitre import import_mitre_file, search_techniques, update_mitre_online
 from src.intel.nvd import import_nvd_file, query_cves, seed_demo_cves, update_nvd_online
 from src.scenario import ScenarioWorkflow
-from src.config import AppConfig, build_inference_config
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures" / "intel"
@@ -65,6 +69,38 @@ def test_cti_ingest_and_match(tmp_path):
     assert packs[0]["id"] == "api-threats"
     matched = matching_cti_packs(cfg, ["T1190"])
     assert matched[0]["title"] == "API Exposure Campaign Notes"
+
+
+def test_cisa_kev_offline_import_builds_packs(tmp_path):
+    cfg = paths(tmp_path)
+    result = import_cisa_kev_file(cfg, FIXTURES / "cisa_kev_sample.json", recent_limit=10)
+    assert result["written"] >= 3  # individuals + rollup
+    assert result["catalog_version"] == "2026.01.01-test"
+    packs = list_cti_packs(cfg)
+    ids = {pack["id"] for pack in packs}
+    assert "cisa-kev-rollup" in ids
+    assert "cisa-kev-cve-2024-1111" in ids
+    assert "cisa-kev-cve-2024-2222" in ids
+    # SQLi maps to T1190 so scenario matching can hit KEV packs
+    matched = matching_cti_packs(cfg, ["T1190"])
+    assert any(pack["source"] == "cisa-kev" for pack in matched)
+    status = intel_status(cfg)
+    assert status["catalogs"]["cti"]["status"] == "ready"
+    assert status["catalogs"]["cti"]["source"] == "cisa-kev"
+
+
+def test_cisa_kev_online_uses_mock_transport(tmp_path):
+    cfg = paths(tmp_path)
+    payload = json.loads((FIXTURES / "cisa_kev_sample.json").read_text())
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert "cisa.gov" in str(request.url)
+        return httpx.Response(200, json=payload)
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    result = update_cisa_kev_online(cfg, client=client, recent_limit=5)
+    assert result["written"] >= 2
+    assert result["url"]
 
 
 def test_update_nvd_online_uses_mock_transport(tmp_path):

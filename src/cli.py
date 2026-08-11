@@ -18,7 +18,14 @@ from src.config import (
 )
 from src.export_pdf import export_artifact_pdf
 from src.inference_client import client_from_config
-from src.intel.cti import delete_cti_pack, ingest_cti_pack, list_cti_packs, upsert_cti_pack
+from src.intel.cti import (
+    delete_cti_pack,
+    import_cisa_kev_file,
+    ingest_cti_pack,
+    list_cti_packs,
+    update_cisa_kev_online,
+    upsert_cti_pack,
+)
 from src.intel.manifest import intel_status
 from src.intel.mitre import import_mitre_file, search_techniques, update_mitre_online
 from src.intel.nvd import import_nvd_file, query_cves, seed_demo_cves, update_nvd_online
@@ -550,7 +557,9 @@ def intel_search_mitre(
     limit: Annotated[int, typer.Option("--limit", min=1, max=200)] = 30,
     output_dir: Annotated[Path | None, typer.Option("--output-dir")] = None,
 ) -> None:
-    typer.echo(json.dumps(search_techniques(_paths(output_dir=output_dir), q, limit=limit), indent=2))
+    typer.echo(
+        json.dumps(search_techniques(_paths(output_dir=output_dir), q, limit=limit), indent=2)
+    )
 
 
 @intel_app.command("ingest-cti")
@@ -560,6 +569,46 @@ def intel_ingest_cti(
 ) -> None:
     """Offline ingest of one or more CTI packs."""
     typer.echo(json.dumps(ingest_cti_pack(_paths(output_dir=output_dir), path), indent=2))
+
+
+@intel_app.command("ingest-kev")
+def intel_ingest_kev(
+    path: Annotated[Path, typer.Argument(help="CISA KEV catalog JSON file")],
+    recent: Annotated[int, typer.Option("--recent", min=0, max=500)] = 40,
+    ransomware: Annotated[int, typer.Option("--ransomware", min=0, max=500)] = 25,
+    output_dir: Annotated[Path | None, typer.Option("--output-dir")] = None,
+) -> None:
+    """Offline ingest of the CISA Known Exploited Vulnerabilities catalog into CTI packs."""
+    typer.echo(
+        json.dumps(
+            import_cisa_kev_file(
+                _paths(output_dir=output_dir),
+                path,
+                recent_limit=recent,
+                ransomware_limit=ransomware,
+            ),
+            indent=2,
+        )
+    )
+
+
+@intel_app.command("update-cti-kev")
+def intel_update_cti_kev(
+    recent: Annotated[int, typer.Option("--recent", min=0, max=500)] = 40,
+    ransomware: Annotated[int, typer.Option("--ransomware", min=0, max=500)] = 25,
+    output_dir: Annotated[Path | None, typer.Option("--output-dir")] = None,
+) -> None:
+    """Online pull of CISA KEV → CTI packs (public JSON, no API key)."""
+    typer.echo(
+        json.dumps(
+            update_cisa_kev_online(
+                _paths(output_dir=output_dir),
+                recent_limit=recent,
+                ransomware_limit=ransomware,
+            ),
+            indent=2,
+        )
+    )
 
 
 @intel_app.command("list-cti")

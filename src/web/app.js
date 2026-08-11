@@ -8,6 +8,8 @@ const appState = {
   maintainGraph: null,
   lastMaintainResult: null,
   maintainVizMode: "cooccurrence",
+  ctiPacks: [],
+  selectedCtiPackId: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -437,6 +439,74 @@ function renderIntelCards() {
   }
 }
 
+async function loadCtiPacks() {
+  appState.ctiPacks = await fetchJson("/api/cti");
+  if (
+    appState.selectedCtiPackId &&
+    !appState.ctiPacks.some((pack) => pack.id === appState.selectedCtiPackId)
+  ) {
+    appState.selectedCtiPackId = null;
+  }
+  renderCtiPacks();
+}
+
+function renderCtiPacks() {
+  const table = $("cti-packs-table");
+  if (!table) return;
+  table.replaceChildren();
+  const filter = ($("cti-filter")?.value || "").trim().toLowerCase();
+  const packs = appState.ctiPacks.filter((pack) => {
+    if (!filter) return true;
+    const blob = [pack.id, pack.title, ...(pack.techniques || []), ...(pack.iocs || [])]
+      .join(" ")
+      .toLowerCase();
+    return blob.includes(filter);
+  });
+  if (!packs.length) {
+    const row = document.createElement("tr");
+    const cell = document.createElement("td");
+    cell.colSpan = 2;
+    cell.textContent = appState.ctiPacks.length ? "No packs match the filter" : "No CTI packs yet";
+    row.appendChild(cell);
+    table.appendChild(row);
+    $("cti-pack-preview").textContent = "Select a pack";
+    return;
+  }
+  for (const pack of packs) {
+    const row = document.createElement("tr");
+    if (pack.id === appState.selectedCtiPackId) row.classList.add("selected");
+    row.addEventListener("click", () => previewCtiPack(pack.id));
+
+    const name = document.createElement("td");
+    const nameText = document.createElement("span");
+    nameText.className = "file-name";
+    nameText.textContent = pack.title;
+    name.appendChild(nameText);
+
+    const techniques = document.createElement("td");
+    techniques.textContent = (pack.techniques || []).slice(0, 4).join(", ");
+
+    row.append(name, techniques);
+    table.appendChild(row);
+  }
+}
+
+function previewCtiPack(packId) {
+  appState.selectedCtiPackId = packId;
+  renderCtiPacks();
+  const pack = appState.ctiPacks.find((item) => item.id === packId);
+  if (!pack) return;
+  $("cti-pack-preview").textContent = [
+    `${pack.title} (${pack.id})`,
+    `Source: ${pack.source || "n/a"} · Updated: ${pack.updated_at || "n/a"}`,
+    `Actors: ${(pack.actors || []).join(", ") || "n/a"}`,
+    `Techniques: ${(pack.techniques || []).join(", ") || "n/a"}`,
+    `IOCs: ${(pack.iocs || []).join(", ") || "n/a"}`,
+    "",
+    pack.notes || "",
+  ].join("\n");
+}
+
 function renderReports() {
   const table = $("reports-table");
   table.replaceChildren();
@@ -503,6 +573,7 @@ function renderJobs() {
     const previous = appState.lastJobStatuses.get(job.id);
     if (previous && previous === "running" && job.status !== "running") {
       showToast(`${job.kind} ${job.status}`);
+      if (job.kind.startsWith("intel-cti")) loadCtiPacks().catch(() => {});
     }
     appState.lastJobStatuses.set(job.id, job.status);
 
@@ -1111,7 +1182,7 @@ function bindEvents() {
   });
   $("maintain-refresh-galaxy")?.addEventListener("click", () => {
     loadMaintainGraph()
-      .then(() => showToast("Galaxy refreshed + Neo4j sync attempted"))
+      .then(() => showToast("Observatory refreshed + Neo4j sync attempted"))
       .catch((error) => showToast(error.message));
   });
   $("maintain-neo4j-sync")?.addEventListener("click", () => {
@@ -1211,7 +1282,9 @@ function bindEvents() {
 
   $("intel-refresh")?.addEventListener("click", () => {
     refreshStatus().catch((error) => showToast(error.message));
+    loadCtiPacks().catch((error) => showToast(error.message));
   });
+  $("cti-filter")?.addEventListener("input", renderCtiPacks);
   $("intel-seed-nvd")?.addEventListener("click", () => {
     fetchJson("/api/intel/seed-nvd", { method: "POST", body: "{}" })
       .then((result) => {
@@ -1229,6 +1302,15 @@ function bindEvents() {
     submitJob("/api/intel/update", { catalog: "mitre", mode: "online", background: true }).catch(
       (error) => showToast(error.message),
     );
+  });
+  $("intel-update-cti-kev")?.addEventListener("click", () => {
+    submitJob("/api/intel/update", {
+      catalog: "cti",
+      mode: "online",
+      background: true,
+      recent: 40,
+      ransomware: 25,
+    }).catch((error) => showToast(error.message));
   });
 
   $("export-pdf")?.addEventListener("click", () => {
@@ -1278,6 +1360,7 @@ refreshStatus()
   .then(() => loadMaintainCards())
   .then(() => loadCannedQueryList())
   .then(() => loadMaintainGraph())
+  .then(() => loadCtiPacks())
   .then(schedulePoll)
   .catch((error) => {
     showToast(error.message);

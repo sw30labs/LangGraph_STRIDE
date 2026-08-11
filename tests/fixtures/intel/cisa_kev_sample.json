@@ -1,0 +1,47 @@
+{
+  "title": "CISA Catalog of Known Exploited Vulnerabilities",
+  "catalogVersion": "2026.01.01-test",
+  "dateReleased": "2026-01-01T00:00:00.0000Z",
+  "count": 3,
+  "vulnerabilities": [
+    {
+      "cveID": "CVE-2024-1111",
+      "vendorProject": "ExampleCorp",
+      "product": "WebGate",
+      "vulnerabilityName": "ExampleCorp WebGate SQL Injection Vulnerability",
+      "dateAdded": "2026-01-01",
+      "shortDescription": "ExampleCorp WebGate contains a SQL injection vulnerability that allows remote code execution on the public interface.",
+      "requiredAction": "Apply vendor mitigations immediately.",
+      "dueDate": "2026-01-15",
+      "knownRansomwareCampaignUse": "Unknown",
+      "notes": "https://nvd.nist.gov/vuln/detail/CVE-2024-1111",
+      "cwes": ["CWE-89"]
+    },
+    {
+      "cveID": "CVE-2024-2222",
+      "vendorProject": "OtherSoft",
+      "product": "ShareHub",
+      "vulnerabilityName": "OtherSoft ShareHub Deserialization Vulnerability",
+      "dateAdded": "2025-12-15",
+      "shortDescription": "ShareHub contains a deserialization of untrusted data vulnerability which could allow an unauthorized attacker to execute code over a network.",
+      "requiredAction": "Patch or discontinue use.",
+      "dueDate": "2025-12-30",
+      "knownRansomwareCampaignUse": "Known",
+      "notes": "https://nvd.nist.gov/vuln/detail/CVE-2024-2222",
+      "cwes": ["CWE-502"]
+    },
+    {
+      "cveID": "CVE-2023-3333",
+      "vendorProject": "Legacy",
+      "product": "VPN",
+      "vulnerabilityName": "Legacy VPN Authentication Bypass Vulnerability",
+      "dateAdded": "2025-11-01",
+      "shortDescription": "Legacy VPN contains an authentication bypass using an alternate path.",
+      "requiredAction": "Apply vendor patches.",
+      "dueDate": "2025-11-20",
+      "knownRansomwareCampaignUse": "Unknown",
+      "notes": "https://nvd.nist.gov/vuln/detail/CVE-2023-3333",
+      "cwes": ["CWE-288"]
+    }
+  ]
+}
