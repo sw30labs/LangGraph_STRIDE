@@ -49,21 +49,33 @@
 
     <div class="shell">
       <aside class="rail" aria-label="Workflow navigation">
-        <p class="rail-label">Workflow</p>
-        <button class="rail-item active" data-target="model-panel" type="button">
+        <p class="rail-label">Console</p>
+        <button class="rail-item active" data-target="apps-panel" type="button">
           <span class="rail-kicker">01</span>
+          <span>Applications</span>
+        </button>
+        <button class="rail-item" data-target="navigator-panel" type="button">
+          <span class="rail-kicker">02</span>
+          <span>Navigator</span>
+        </button>
+        <button class="rail-item" data-target="model-panel" type="button">
+          <span class="rail-kicker">03</span>
           <span>Threat model</span>
         </button>
         <button class="rail-item" data-target="scenario-panel" type="button">
-          <span class="rail-kicker">02</span>
+          <span class="rail-kicker">04</span>
           <span>Scenario</span>
         </button>
+        <button class="rail-item" data-target="intel-panel" type="button">
+          <span class="rail-kicker">05</span>
+          <span>Intel</span>
+        </button>
         <button class="rail-item" data-target="reports-panel" type="button">
-          <span class="rail-kicker">03</span>
+          <span class="rail-kicker">06</span>
           <span>Reports</span>
         </button>
         <button class="rail-item" data-target="activity-panel" type="button">
-          <span class="rail-kicker">04</span>
+          <span class="rail-kicker">07</span>
           <span>Activity</span>
         </button>
         <p class="rail-foot">STRIDE · DREAD · CVE<br />threat operations console</p>
@@ -86,6 +98,61 @@
           <div class="metric">
             <span class="metric-label">Scenarios</span>
             <strong id="metric-scenarios">0</strong>
+          </div>
+          <div class="metric">
+            <span class="metric-label">NVD CVEs</span>
+            <strong id="metric-cves">0</strong>
+          </div>
+        </section>
+
+        <section id="apps-panel" class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">CMDB inventory</p>
+              <h2>Applications</h2>
+            </div>
+            <div class="panel-actions">
+              <button id="cmdb-seed" class="button secondary" type="button">Seed sample</button>
+              <button id="cmdb-save" class="button primary" type="button">Save app</button>
+            </div>
+          </div>
+          <div class="split-layout">
+            <div class="table-shell compact">
+              <table>
+                <thead>
+                  <tr><th>AA ID</th><th>Name</th><th>Facing</th></tr>
+                </thead>
+                <tbody id="cmdb-table"></tbody>
+              </table>
+            </div>
+            <form id="cmdb-form" class="stack-form">
+              <label><span>AA ID</span><input id="cmdb-aa-id" name="aa_id" required /></label>
+              <label><span>Name</span><input id="cmdb-name" name="name" required /></label>
+              <label><span>Description</span><textarea id="cmdb-description" rows="3"></textarea></label>
+              <label><span>Confidentiality</span><input id="cmdb-confidentiality" /></label>
+              <label><span>Integrity</span><input id="cmdb-integrity" /></label>
+              <label><span>Platform (comma-separated)</span><input id="cmdb-platform" /></label>
+              <label><span>Externally facing</span><input id="cmdb-facing" /></label>
+              <p class="form-hint">I write edits into output/workspace/cmdb.json, not the packaged seed file.</p>
+            </form>
+          </div>
+        </section>
+
+        <section id="navigator-panel" class="panel wide-panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Lineage</p>
+              <h2>Navigator</h2>
+            </div>
+            <span id="navigator-counts" class="state-indicator">0 apps</span>
+          </div>
+          <div class="split-layout">
+            <div id="navigator-tree" class="nav-tree">
+              <div class="empty-state">No applications yet</div>
+            </div>
+            <div id="navigator-detail" class="detail-band">
+              <div class="empty-state">Select an application, threat model, or scenario</div>
+            </div>
           </div>
         </section>
 
@@ -171,16 +238,42 @@
           </div>
         </section>
 
+        <section id="intel-panel" class="panel wide-panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Catalogs</p>
+              <h2>Intel maintenance</h2>
+            </div>
+            <button id="intel-refresh" class="button secondary" type="button">Refresh status</button>
+          </div>
+          <div class="intel-grid" id="intel-cards">
+            <div class="empty-state">Loading intel status…</div>
+          </div>
+          <div class="panel-actions intel-actions">
+            <button id="intel-seed-nvd" class="button secondary" type="button">Seed demo CVEs</button>
+            <button id="intel-update-nvd" class="button secondary" type="button">Update NVD (online)</button>
+            <button id="intel-update-mitre" class="button secondary" type="button">Update MITRE (online)</button>
+          </div>
+          <p class="form-hint">
+            Offline ingest stays first-class: use
+            <code>python -m src.cli intel ingest-nvd|ingest-mitre|ingest-cti</code>
+            on air-gapped boxes. Online buttons start background jobs.
+          </p>
+        </section>
+
         <section id="reports-panel" class="panel wide-panel">
           <div class="panel-header">
             <div>
               <p class="eyebrow">Output library</p>
               <h2>Generated artifacts</h2>
             </div>
-            <div class="segmented" role="tablist" aria-label="Report type">
-              <button class="segment active" data-report-type="stride" type="button">STRIDE</button>
-              <button class="segment" data-report-type="scenarios" type="button">Scenarios</button>
-              <button class="segment" data-report-type="feedback" type="button">Feedback</button>
+            <div class="panel-actions">
+              <div class="segmented" role="tablist" aria-label="Report type">
+                <button class="segment active" data-report-type="stride" type="button">STRIDE</button>
+                <button class="segment" data-report-type="scenarios" type="button">Scenarios</button>
+                <button class="segment" data-report-type="feedback" type="button">Feedback</button>
+              </div>
+              <button id="export-pdf" class="button primary" type="button">Export PDF</button>
             </div>
           </div>
 

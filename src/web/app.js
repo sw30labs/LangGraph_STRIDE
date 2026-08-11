@@ -256,6 +256,171 @@ function updateMetrics() {
   $("metric-templates").textContent = String(appState.status.attack_templates.length);
   $("metric-stride").textContent = String(appState.status.outputs.stride.length);
   $("metric-scenarios").textContent = String(appState.status.outputs.scenarios.length);
+  const cves = appState.status.intel?.catalogs?.nvd?.cve_count;
+  if ($("metric-cves")) $("metric-cves").textContent = String(cves || 0);
+}
+
+function renderCmdbTable() {
+  const table = $("cmdb-table");
+  if (!table) return;
+  table.replaceChildren();
+  for (const row of appState.status.cmdb || []) {
+    const tr = document.createElement("tr");
+    if (row.aa_id === appState.selectedCmdbId) tr.classList.add("selected");
+    tr.addEventListener("click", () => {
+      appState.selectedCmdbId = row.aa_id;
+      fillCmdbForm(row);
+      renderCmdbTable();
+    });
+    for (const value of [row.aa_id, row.name, row.externally_facing || "—"]) {
+      const td = document.createElement("td");
+      td.textContent = value || "—";
+      tr.appendChild(td);
+    }
+    table.appendChild(tr);
+  }
+}
+
+function fillCmdbForm(row) {
+  if (!$("cmdb-aa-id")) return;
+  $("cmdb-aa-id").value = row?.aa_id || "";
+  $("cmdb-name").value = row?.name || "";
+  $("cmdb-description").value = row?.description || "";
+  $("cmdb-confidentiality").value = row?.confidentiality || "";
+  $("cmdb-integrity").value = row?.integrity || "";
+  $("cmdb-platform").value = Array.isArray(row?.platform)
+    ? row.platform.join(", ")
+    : row?.platform || "";
+  $("cmdb-facing").value = row?.externally_facing || "";
+}
+
+function renderNavigator() {
+  const tree = $("navigator-tree");
+  const detail = $("navigator-detail");
+  const counts = $("navigator-counts");
+  if (!tree || !detail) return;
+  const nav = appState.status.navigator || { applications: [], counts: {} };
+  if (counts) {
+    counts.textContent = `${nav.counts?.applications || 0} apps · ${nav.counts?.threat_models || 0} models · ${nav.counts?.scenarios || 0} scenarios`;
+  }
+  tree.replaceChildren();
+  const apps = nav.applications || [];
+  if (!apps.length) {
+    tree.innerHTML = '<div class="empty-state">No applications yet</div>';
+    return;
+  }
+  for (const app of apps) {
+    const appNode = document.createElement("details");
+    appNode.open = true;
+    const summary = document.createElement("summary");
+    summary.textContent = `${app.aa_id} · ${app.name || "Unnamed"} (${(app.threat_models || []).length})`;
+    summary.addEventListener("click", (event) => {
+      event.preventDefault();
+      appNode.open = !appNode.open;
+      showNavigatorDetail({ type: "app", app });
+    });
+    appNode.appendChild(summary);
+    for (const model of app.threat_models || []) {
+      const modelBtn = document.createElement("button");
+      modelBtn.type = "button";
+      modelBtn.className = "nav-node";
+      modelBtn.textContent = `TM ${model.artifact_id || model.path} · threats ${model.threat_count || 0}`;
+      modelBtn.addEventListener("click", () => {
+        showNavigatorDetail({ type: "model", app, model });
+        if (model.path) {
+          $("json-file").value = model.path;
+        }
+      });
+      appNode.appendChild(modelBtn);
+      for (const scenario of model.scenarios || []) {
+        const scBtn = document.createElement("button");
+        scBtn.type = "button";
+        scBtn.className = "nav-node nested";
+        scBtn.textContent = `SC ${scenario.attack_template || scenario.path}`;
+        scBtn.addEventListener("click", () => showNavigatorDetail({ type: "scenario", app, model, scenario }));
+        appNode.appendChild(scBtn);
+      }
+    }
+    tree.appendChild(appNode);
+  }
+}
+
+function showNavigatorDetail(selection) {
+  const detail = $("navigator-detail");
+  if (!detail) return;
+  detail.replaceChildren();
+  const block = document.createElement("div");
+  block.className = "detail-grid";
+  const lines = [];
+  if (selection.type === "app") {
+    lines.push(["AA ID", selection.app.aa_id], ["Name", selection.app.name], ["Models", String((selection.app.threat_models || []).length)]);
+  } else if (selection.type === "model") {
+    lines.push(
+      ["Artifact", selection.model.artifact_id || ""],
+      ["Path", selection.model.path || ""],
+      ["Threats", String(selection.model.threat_count || 0)],
+      ["Max DREAD", selection.model.max_dread == null ? "—" : String(selection.model.max_dread)],
+      ["Scenarios", String((selection.model.scenarios || []).length)],
+    );
+    const actions = document.createElement("div");
+    actions.className = "panel-actions";
+    const run = document.createElement("button");
+    run.type = "button";
+    run.className = "button primary";
+    run.textContent = "Use in scenario form";
+    run.addEventListener("click", () => {
+      if (selection.model.path) $("json-file").value = selection.model.path;
+      if (selection.app.aa_id) $("aa-id").value = selection.app.aa_id;
+      showToast("Scenario form prefilled from navigator");
+      document.querySelector('[data-target="scenario-panel"]')?.click();
+    });
+    actions.appendChild(run);
+    detail.appendChild(actions);
+  } else if (selection.type === "scenario") {
+    lines.push(
+      ["Attack chain", selection.scenario.attack_template || ""],
+      ["Path", selection.scenario.path || ""],
+      ["Created", selection.scenario.created_at || ""],
+    );
+  }
+  for (const [label, value] of lines) {
+    const item = document.createElement("div");
+    item.className = "detail-item";
+    const labelEl = document.createElement("span");
+    labelEl.textContent = label;
+    const valueEl = document.createElement("strong");
+    valueEl.textContent = value || "—";
+    item.append(labelEl, valueEl);
+    block.appendChild(item);
+  }
+  detail.appendChild(block);
+}
+
+function renderIntelCards() {
+  const host = $("intel-cards");
+  if (!host) return;
+  const catalogs = appState.status.intel?.catalogs || {};
+  host.replaceChildren();
+  for (const key of ["nvd", "mitre", "cti"]) {
+    const cat = catalogs[key] || {};
+    const card = document.createElement("div");
+    card.className = "intel-card";
+    const title = document.createElement("h3");
+    title.textContent = key.toUpperCase();
+    const status = document.createElement("span");
+    status.className = `state-indicator ${cat.status || "missing"}`;
+    status.textContent = cat.status || "missing";
+    const body = document.createElement("p");
+    if (key === "nvd") body.textContent = `${cat.cve_count || 0} CVEs · ${cat.source || "no source"}`;
+    if (key === "mitre") body.textContent = `${cat.technique_count || 0} techniques · ${cat.source || "no source"}`;
+    if (key === "cti") body.textContent = `${cat.pack_count || 0} packs · ${cat.source || "no source"}`;
+    const when = document.createElement("p");
+    when.className = "form-hint";
+    when.textContent = cat.last_success_at ? `Last success: ${cat.last_success_at}` : "Never updated";
+    if (cat.last_error) when.textContent += ` · error: ${cat.last_error}`;
+    card.append(title, status, body, when);
+    host.appendChild(card);
+  }
 }
 
 function renderReports() {
@@ -367,6 +532,9 @@ async function refreshStatus() {
   populatecmdb();
   populateTemplates();
   populateJsonFiles();
+  renderCmdbTable();
+  renderNavigator();
+  renderIntelCards();
   renderReports();
   renderJobs();
 }
@@ -431,15 +599,100 @@ function bindEvents() {
       $(button.dataset.target).scrollIntoView({ behavior: "smooth", block: "start" });
     });
   });
+
+  $("cmdb-seed")?.addEventListener("click", () => {
+    fetchJson("/api/workspace/seed", { method: "POST", body: JSON.stringify({ force: false }) })
+      .then(() => refreshStatus())
+      .then(() => showToast("Workspace seeded"))
+      .catch((error) => showToast(error.message));
+  });
+
+  $("cmdb-save")?.addEventListener("click", () => {
+    const platform = ($("cmdb-platform").value || "")
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean);
+    fetchJson("/api/cmdb", {
+      method: "POST",
+      body: JSON.stringify({
+        aa_id: $("cmdb-aa-id").value,
+        name: $("cmdb-name").value,
+        swc_description: $("cmdb-description").value,
+        confidentiality: $("cmdb-confidentiality").value,
+        integrity: $("cmdb-integrity").value,
+        platform,
+        externally_facing: $("cmdb-facing").value,
+      }),
+    })
+      .then(() => refreshStatus())
+      .then(() => showToast("Application saved"))
+      .catch((error) => showToast(error.message));
+  });
+
+  $("intel-refresh")?.addEventListener("click", () => {
+    refreshStatus().catch((error) => showToast(error.message));
+  });
+  $("intel-seed-nvd")?.addEventListener("click", () => {
+    fetchJson("/api/intel/seed-nvd", { method: "POST", body: "{}" })
+      .then((result) => {
+        showToast(`Seeded ${result.cve_count || 0} CVEs`);
+        return refreshStatus();
+      })
+      .catch((error) => showToast(error.message));
+  });
+  $("intel-update-nvd")?.addEventListener("click", () => {
+    submitJob("/api/intel/update", { catalog: "nvd", mode: "online", background: true }).catch(
+      (error) => showToast(error.message),
+    );
+  });
+  $("intel-update-mitre")?.addEventListener("click", () => {
+    submitJob("/api/intel/update", { catalog: "mitre", mode: "online", background: true }).catch(
+      (error) => showToast(error.message),
+    );
+  });
+
+  $("export-pdf")?.addEventListener("click", () => {
+    if (!appState.selectedReportPath) {
+      showToast("Select a report first");
+      return;
+    }
+    fetchJson("/api/export/pdf", {
+      method: "POST",
+      body: JSON.stringify({ path: appState.selectedReportPath }),
+    })
+      .then((result) => {
+        showToast(`PDF ready: ${result.path}`);
+        window.open(`/api/export/download?path=${encodeURIComponent(result.path)}`, "_blank");
+      })
+      .catch((error) => showToast(error.message));
+  });
 }
+
+// I poll faster while jobs run, slower when idle, and pause when the tab is hidden.
+let pollTimer = null;
+function schedulePoll() {
+  if (pollTimer) window.clearTimeout(pollTimer);
+  if (document.hidden) return;
+  const running = (appState.status?.jobs || []).some((job) => job.status === "running");
+  const delay = running ? 2500 : 12000;
+  pollTimer = window.setTimeout(() => {
+    refreshStatus()
+      .catch(() => {})
+      .finally(schedulePoll);
+  }, delay);
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    if (pollTimer) window.clearTimeout(pollTimer);
+  } else {
+    refreshStatus().catch(() => {}).finally(schedulePoll);
+  }
+});
 
 bindEvents();
 refreshStatus()
-  .then(() => {
-    window.setInterval(() => {
-      refreshStatus().catch(() => {});
-    }, 2500);
-  })
+  .then(schedulePoll)
   .catch((error) => {
     showToast(error.message);
     $("workspace").textContent = "Workspace unavailable";
