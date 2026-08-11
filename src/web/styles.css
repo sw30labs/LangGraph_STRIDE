@@ -1257,53 +1257,13 @@ tbody tr.selected td {
 
 .heat-grid {
   overflow: auto;
-  padding: 0 4px 12px;
+  padding: 0 20px 12px;
+  display: grid;
+  gap: 6px;
 }
 
-.heat-table {
-  border-collapse: collapse;
-  font-family: var(--mono);
-  font-size: 9px;
-  width: 100%;
-}
-
-.heat-table th,
-.heat-table td {
-  border: 1px solid rgba(94, 234, 212, 0.08);
-  padding: 3px;
-  text-align: center;
-}
-
-.heat-table th {
-  color: var(--faint);
-  font-weight: 500;
-  max-width: 54px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.heat-table th.row-label,
-.heat-table td.row-label {
-  text-align: left;
-  color: var(--dim);
-  max-width: 120px;
-  padding-right: 8px;
-}
-
-.heat-cell {
-  width: 14px;
-  height: 14px;
-  border-radius: 2px;
-}
-
-.heat-cell.on {
-  background: rgba(34, 211, 238, 0.75);
-  box-shadow: 0 0 8px rgba(34, 211, 238, 0.35);
-}
-
-.heat-cell.off {
-  background: rgba(255, 255, 255, 0.03);
+.heat-grid .form-hint {
+  margin: 6px 0 0;
 }
 
 #maintain-result {

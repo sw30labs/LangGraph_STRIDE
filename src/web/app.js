@@ -933,26 +933,35 @@ function renderTacticBars(graph) {
     .join("");
 }
 
-function renderHeatmap(graph) {
+function renderTechniqueUsage(graph) {
   const root = $("maintain-heatmap");
   if (!root) return;
   const heat = graph?.heatmap;
   if (!heat?.techniques?.length || !heat?.chains?.length) {
-    root.innerHTML = '<div class="empty-state">Heatmap empty</div>';
+    root.innerHTML = '<div class="empty-state">No chain library data</div>';
     return;
   }
-  const head = heat.techniques
-    .map((tech) => `<th title="${escapeHtml(tech.label)}">${escapeHtml((tech.id || "").replace(/^name:/, "").slice(0, 8))}</th>`)
-    .join("");
-  const body = heat.chains
-    .map((chain) => {
-      const cells = (chain.cells || [])
-        .map((on) => `<td><div class="heat-cell ${on ? "on" : "off"}"></div></td>`)
-        .join("");
-      return `<tr><td class="row-label" title="${escapeHtml(chain.name)}">${escapeHtml((chain.name || "").slice(0, 18))}</td>${cells}</tr>`;
+  // Count, per technique, how many chains use it — the matrix was unreadable
+  // at library scale; the ranked hub list is the actionable summary.
+  const counts = heat.techniques.map((tech, index) => ({
+    label: tech.label || tech.id || "?",
+    count: heat.chains.reduce((sum, chain) => sum + (chain.cells?.[index] ? 1 : 0), 0),
+  }));
+  counts.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+  const top = counts.slice(0, 12);
+  const max = Math.max(1, ...top.map((row) => row.count));
+  const rows = top
+    .map((row) => {
+      const pct = Math.round((row.count / max) * 100);
+      const short = row.label.length > 30 ? `${row.label.slice(0, 29)}…` : row.label;
+      return `<div class="tactic-row" title="${escapeHtml(row.label)} — used by ${row.count} of ${heat.chains.length} chains">
+        <span>${escapeHtml(short)}</span>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+        <span>${row.count}</span>
+      </div>`;
     })
     .join("");
-  root.innerHTML = `<table class="heat-table"><thead><tr><th class="row-label">chain</th>${head}</tr></thead><tbody>${body}</tbody></table>`;
+  root.innerHTML = `${rows}<p class="form-hint">Chains using each technique · top ${top.length} of ${counts.length} across ${heat.chains.length} chains</p>`;
 }
 
 function renderMaintainResult(result) {
@@ -1042,7 +1051,7 @@ async function loadMaintainGraph() {
   appState.maintainGraph = await fetchJson("/api/maintain/graph");
   renderGalaxy(appState.maintainGraph);
   renderTacticBars(appState.maintainGraph);
-  renderHeatmap(appState.maintainGraph);
+  renderTechniqueUsage(appState.maintainGraph);
   updateNeo4jChip(appState.maintainGraph?.neo4j);
 }
 
@@ -1088,7 +1097,7 @@ async function runMaintainCard(cardId) {
     appState.maintainGraph = graph;
     renderGalaxy(graph);
     renderTacticBars(graph);
-    renderHeatmap(graph);
+    renderTechniqueUsage(graph);
     renderMaintainResult({ card: "technique_galaxy", graph, accepted: true });
     showToast("Technique galaxy refreshed");
     return;
