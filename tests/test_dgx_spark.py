@@ -39,7 +39,7 @@ def test_dgx_helper_exposes_required_commands():
 def test_macos_helper_preserves_env_and_defaults_to_web_console():
     text = (ROOT / "setup_and_run_macos.sh").read_text()
     assert "python=3.11" in text
-    assert "REPO_ROOT}[dev]" in text
+    assert "REPO_ROOT}[dev,graph]" in text
     assert "set -- serve" in text
     assert "cp .env.example .env" not in text
     assert "setup_and_run_dgx.sh" in text
