@@ -573,7 +573,7 @@ function renderJobs() {
     const previous = appState.lastJobStatuses.get(job.id);
     if (previous && previous === "running" && job.status !== "running") {
       showToast(`${job.kind} ${job.status}`);
-      if (job.kind.startsWith("intel-cti")) loadCtiPacks().catch(() => {});
+      if (/^intel-(cti|advisories)/.test(job.kind)) loadCtiPacks().catch(() => {});
     }
     appState.lastJobStatuses.set(job.id, job.status);
 
@@ -1310,6 +1310,14 @@ function bindEvents() {
       background: true,
       recent: 40,
       ransomware: 25,
+    }).catch((error) => showToast(error.message));
+  });
+  $("intel-update-cti-advisories")?.addEventListener("click", () => {
+    submitJob("/api/intel/update", {
+      catalog: "advisories",
+      mode: "online",
+      background: true,
+      limit: 25,
     }).catch((error) => showToast(error.message));
   });
 

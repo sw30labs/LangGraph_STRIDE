@@ -4,6 +4,11 @@ from pathlib import Path
 import httpx
 
 from src.config import AppConfig, PathConfig, build_inference_config
+from src.intel.advisories import (
+    advisories_from_rss,
+    import_cisa_advisories_file,
+    update_cisa_advisories_online,
+)
 from src.intel.cti import (
     import_cisa_kev_file,
     ingest_cti_pack,
@@ -62,6 +67,20 @@ def test_import_mitre_and_search(tmp_path):
     assert rows[0]["is_subtechnique"] is True
 
 
+def test_import_mitre_builds_group_packs(tmp_path):
+    cfg = paths(tmp_path)
+    result = import_mitre_file(cfg, FIXTURES / "mitre_sample.json")
+    assert result["group_pack_count"] == 1  # deprecated group excluded
+    packs = {pack["id"]: pack for pack in list_cti_packs(cfg)}
+    pack = packs["mitre-group-g0001"]
+    assert pack["source"] == "mitre-attack-group"
+    assert pack["actors"] == ["Test Panda", "Granite Typhoon"]
+    assert pack["techniques"] == ["T1190"]  # resolved via "uses" relationship
+    assert "PRC-nexus" in pack["notes"]
+    matched = matching_cti_packs(cfg, ["T1190"])
+    assert any(p["id"] == "mitre-group-g0001" for p in matched)
+
+
 def test_cti_ingest_and_match(tmp_path):
     cfg = paths(tmp_path)
     ingest_cti_pack(cfg, FIXTURES / "cti_sample.json")
@@ -101,6 +120,47 @@ def test_cisa_kev_online_uses_mock_transport(tmp_path):
     result = update_cisa_kev_online(cfg, client=client, recent_limit=5)
     assert result["written"] >= 2
     assert result["url"]
+
+
+def test_cisa_advisories_offline_import_builds_packs(tmp_path):
+    cfg = paths(tmp_path)
+    result = import_cisa_advisories_file(cfg, FIXTURES / "cisa_advisories_sample.xml")
+    assert result["written"] == 3  # AA-numbered + #StopRansomware joint items
+    packs = {pack["id"]: pack for pack in list_cti_packs(cfg)}
+    gru = packs["cisa-adv-aa25-141a"]
+    assert gru["source"] == "cisa-advisory"
+    assert "russia-nexus" in gru["actors"]
+    assert "T1190" in gru["techniques"]
+    prc = packs["cisa-adv-aa25-100b"]
+    assert "prc-nexus" in prc["actors"]
+    assert prc["techniques"]  # auth bypass / SQLi hints mapped
+    stop = packs["cisa-adv-stopransomware-interlock-ransomware"]
+    assert "ransomware-operators" in stop["actors"]
+
+
+def test_cisa_advisories_online_uses_mock_transport(tmp_path):
+    cfg = paths(tmp_path)
+    xml_text = (FIXTURES / "cisa_advisories_sample.xml").read_text()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert "cisa.gov" in str(request.url)
+        return httpx.Response(200, text=xml_text)
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    result = update_cisa_advisories_online(cfg, client=client, limit=10)
+    assert result["written"] == 3
+    assert result["url"]
+
+
+def test_advisories_fallback_to_newest_when_no_aa_items():
+    xml = """<rss version="2.0"><channel>
+      <item><title>Plain alert</title><link>https://x.test/1</link>
+      <description>Ransomware note.</description></item>
+    </channel></rss>"""
+    packs = advisories_from_rss(xml)
+    assert len(packs) == 1
+    assert packs[0]["id"] == "cisa-adv-plain-alert"
+    assert "ransomware-operators" in packs[0]["actors"]
 
 
 def test_update_nvd_online_uses_mock_transport(tmp_path):

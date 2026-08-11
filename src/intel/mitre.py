@@ -3,11 +3,16 @@
 I normalize enterprise-attack STIX (or a pre-normalized techniques list) into
 a small JSON file. The chain editor and search endpoints read that file. Online
 download is opt-in and never runs inside unit tests.
-"""
 
+The same STIX bundle also carries intrusion-set (group) objects — nation-state
+and criminal actors with aliases, descriptions, and "uses" relationships to
+techniques. I turn those into CTI packs so the scenario CTI stage has
+geopolitical actor context that matches attack chains.
+"""
 
 from __future__ import annotations
 
+import contextlib
 import json
 from pathlib import Path
 from typing import Any
@@ -15,6 +20,7 @@ from typing import Any
 import httpx
 
 from src.config import PathConfig
+from src.intel.cti import delete_cti_pack, list_cti_packs, upsert_cti_pack
 from src.intel.manifest import now_iso, patch_catalog
 from src.workspace import intel_dir
 
@@ -22,6 +28,8 @@ from src.workspace import intel_dir
 MITRE_ENTERPRISE_URL = (
     "https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json"
 )
+
+MITRE_GROUP_SOURCE = "mitre-attack-group"
 
 
 def techniques_path(paths: PathConfig) -> Path:
@@ -58,6 +66,13 @@ def _tactic_names(obj: dict[str, Any]) -> list[str]:
         if isinstance(phase, dict) and phase.get("phase_name"):
             names.append(str(phase["phase_name"]))
     return names
+
+
+def _attack_url(obj: dict[str, Any]) -> str:
+    for ref in obj.get("external_references") or []:
+        if isinstance(ref, dict) and ref.get("source_name") == "mitre-attack" and ref.get("url"):
+            return str(ref["url"])
+    return ""
 
 
 def normalize_stix_bundle(payload: dict[str, Any] | list[Any]) -> dict[str, Any]:
@@ -109,18 +124,13 @@ def normalize_stix_bundle(payload: dict[str, Any] | list[Any]) -> dict[str, Any]
         parent_id = None
         if is_sub and "." in technique_id:
             parent_id = technique_id.split(".", 1)[0]
-        url = ""
-        for ref in obj.get("external_references") or []:
-            if isinstance(ref, dict) and ref.get("source_name") == "mitre-attack" and ref.get("url"):
-                url = str(ref["url"])
-                break
         techniques.append(
             {
                 "technique_id": technique_id,
                 "name": name,
                 "tactics": _tactic_names(obj),
                 "platforms": list(obj.get("x_mitre_platforms") or []),
-                "url": url,
+                "url": _attack_url(obj),
                 "is_subtechnique": is_sub,
                 "parent_id": parent_id,
                 "description": str(obj.get("description") or "")[:500],
@@ -132,6 +142,105 @@ def normalize_stix_bundle(payload: dict[str, Any] | list[Any]) -> dict[str, Any]
         "techniques": techniques,
         "source": "mitre-cti-stix",
     }
+
+
+def normalize_stix_groups(payload: dict[str, Any] | list[Any]) -> list[dict[str, Any]]:
+    """Extract STIX intrusion-set objects as CTI pack dicts.
+
+    Packs carry the group name + aliases as actors, techniques resolved from
+    "uses" relationships, and the ATT&CK description (attribution, targeted
+    sectors/regions) as notes — the geopolitical context for scenario CTI.
+    """
+    if isinstance(payload, dict):
+        objects = payload.get("objects") if isinstance(payload.get("objects"), list) else []
+    elif isinstance(payload, list):
+        objects = payload
+    else:
+        return []
+
+    techniques_by_stix: dict[str, str] = {}
+    for obj in objects:
+        if isinstance(obj, dict) and obj.get("type") == "attack-pattern" and obj.get("id"):
+            technique_id = _external_id(obj)
+            if technique_id:
+                techniques_by_stix[str(obj["id"])] = technique_id
+
+    uses: dict[str, set[str]] = {}
+    for obj in objects:
+        if not isinstance(obj, dict) or obj.get("type") != "relationship":
+            continue
+        if obj.get("relationship_type") != "uses":
+            continue
+        technique_id = techniques_by_stix.get(str(obj.get("target_ref") or ""))
+        if obj.get("source_ref") and technique_id:
+            uses.setdefault(str(obj["source_ref"]), set()).add(technique_id)
+
+    packs: list[dict[str, Any]] = []
+    for obj in objects:
+        if not isinstance(obj, dict) or obj.get("type") != "intrusion-set":
+            continue
+        if obj.get("revoked") is True or obj.get("x_mitre_deprecated") is True:
+            continue
+        group_id = _external_id(obj)
+        name = str(obj.get("name") or "").strip()
+        if not group_id or not name:
+            continue
+        aliases = [
+            alias
+            for alias in (str(a).strip() for a in (obj.get("aliases") or []))
+            if alias and alias != name
+        ]
+        notes = "\n".join(
+            [
+                f"Group: {name} ({group_id})",
+                f"Aliases: {', '.join(aliases) or 'n/a'}",
+                f"URL: {_attack_url(obj) or 'n/a'}",
+                "",
+                str(obj.get("description") or "").strip()[:2000],
+                "",
+                "Source: MITRE ATT&CK groups (enterprise-attack STIX)",
+            ]
+        )
+        packs.append(
+            {
+                "id": f"mitre-group-{group_id.casefold()}",
+                "title": f"MITRE group: {name} ({group_id})",
+                "actors": [name, *aliases],
+                "techniques": sorted(uses.get(str(obj.get("id") or ""), set())),
+                "iocs": [],
+                "notes": notes,
+                "source": MITRE_GROUP_SOURCE,
+            }
+        )
+    packs.sort(key=lambda pack: pack["id"])
+    return packs
+
+
+def import_mitre_groups(
+    paths: PathConfig,
+    payload: dict[str, Any] | list[Any],
+    *,
+    replace_previous: bool = True,
+) -> dict[str, Any]:
+    """Materialize STIX intrusion-sets as CTI packs (per-source replace)."""
+    packs = normalize_stix_groups(payload)
+    if replace_previous:
+        for existing in list_cti_packs(paths):
+            if str(existing.get("source") or "") == MITRE_GROUP_SOURCE:
+                with contextlib.suppress(ValueError):
+                    delete_cti_pack(paths, existing["id"])
+    written = [upsert_cti_pack(paths, pack) for pack in packs]
+    if written:
+        patch_catalog(
+            paths,
+            "cti",
+            status="ready",
+            pack_count=len(list_cti_packs(paths)),
+            last_success_at=now_iso(),
+            last_error=None,
+            source=MITRE_GROUP_SOURCE,
+        )
+    return {"group_pack_count": len(written)}
 
 
 def save_techniques(paths: PathConfig, catalog: dict[str, Any]) -> Path:
@@ -165,10 +274,14 @@ def import_mitre_file(paths: PathConfig, path: Path | str) -> dict[str, Any]:
         raise ValueError("No ATT&CK techniques found in import payload")
     catalog["source"] = "offline-import"
     out = save_techniques(paths, catalog)
+    group_pack_count = 0
+    if isinstance(payload, dict) and isinstance(payload.get("objects"), list):
+        group_pack_count = import_mitre_groups(paths, payload)["group_pack_count"]
     return {
         "path": str(out),
         "technique_count": len(catalog["techniques"]),
         "attack_version": catalog.get("attack_version"),
+        "group_pack_count": group_pack_count,
         "source_file": str(source),
     }
 
@@ -221,7 +334,9 @@ def update_mitre_online(
     client: httpx.Client | None = None,
 ) -> dict[str, Any]:
     owns = client is None
-    http = client or httpx.Client(timeout=120.0, headers={"User-Agent": "langgraph-stride-intel/0.1"})
+    http = client or httpx.Client(
+        timeout=120.0, headers={"User-Agent": "langgraph-stride-intel/0.1"}
+    )
     try:
         patch_catalog(paths, "mitre", status="updating", last_error=None)
         response = http.get(url)
@@ -232,10 +347,12 @@ def update_mitre_online(
             raise ValueError("Online MITRE download contained no techniques")
         catalog["source"] = "mitre-cti-stix"
         out = save_techniques(paths, catalog)
+        group_pack_count = import_mitre_groups(paths, payload)["group_pack_count"]
         return {
             "path": str(out),
             "technique_count": len(catalog["techniques"]),
             "attack_version": catalog.get("attack_version"),
+            "group_pack_count": group_pack_count,
             "source_url": url,
         }
     except Exception as exc:

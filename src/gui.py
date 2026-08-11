@@ -313,8 +313,8 @@ def build_intel_job(data: dict[str, Any]) -> Job:
     """Background CLI job for long-running online intel updates."""
     catalog = str(data.get("catalog") or "").strip().lower()
     mode = str(data.get("mode") or "online").strip().lower()
-    if catalog not in {"nvd", "mitre", "cti", "kev"}:
-        raise ValueError("catalog must be nvd, mitre, cti, or kev")
+    if catalog not in {"nvd", "mitre", "cti", "kev", "advisories"}:
+        raise ValueError("catalog must be nvd, mitre, cti, kev, or advisories")
     if mode not in {"online", "offline"}:
         raise ValueError("mode must be online or offline")
     command = [sys.executable, "-m", "src.cli", "intel"]
@@ -345,6 +345,15 @@ def build_intel_job(data: dict[str, Any]) -> Job:
         if not source:
             raise ValueError("path is required for offline KEV ingest")
         command.extend(["ingest-kev", str(ensure_repo_file(source))])
+    elif catalog == "advisories" and mode == "online":
+        command.append("update-cti-advisories")
+        if data.get("limit") is not None:
+            command.extend(["--limit", str(int(data["limit"]))])
+    elif catalog == "advisories" and mode == "offline":
+        source = str(data.get("path") or "").strip()
+        if not source:
+            raise ValueError("path is required for offline advisories ingest")
+        command.extend(["ingest-cisa-advisories", str(ensure_repo_file(source))])
     else:
         raise ValueError(f"Unsupported intel job: catalog={catalog} mode={mode}")
     command.extend(["--output-dir", str(CONFIG.paths.output_dir)])
@@ -686,7 +695,7 @@ class GuiHandler(BaseHTTPRequestHandler):
                 # Synchronous small ops or background job for online pulls
                 catalog = str(data.get("catalog") or "").strip().lower()
                 mode = str(data.get("mode") or "online").strip().lower()
-                if mode == "online" and catalog in {"nvd", "mitre", "cti", "kev"}:
+                if mode == "online" and catalog in {"nvd", "mitre", "cti", "kev", "advisories"}:
                     if data.get("background", True):
                         self.send_json(build_intel_job(data).snapshot(), HTTPStatus.ACCEPTED)
                     elif catalog == "nvd":

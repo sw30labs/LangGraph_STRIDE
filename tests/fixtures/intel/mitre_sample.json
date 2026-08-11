@@ -61,6 +61,42 @@
           "external_id": "T9999"
         }
       ]
+    },
+    {
+      "type": "intrusion-set",
+      "id": "intrusion-set--1",
+      "name": "Test Panda",
+      "description": "Test Panda is a fictional PRC-nexus state-sponsored group targeting European telecoms for espionage.",
+      "aliases": [
+        "Test Panda",
+        "Granite Typhoon"
+      ],
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "G0001",
+          "url": "https://attack.mitre.org/groups/G0001"
+        }
+      ]
+    },
+    {
+      "type": "intrusion-set",
+      "id": "intrusion-set--deprecated",
+      "name": "Old Group",
+      "x_mitre_deprecated": true,
+      "external_references": [
+        {
+          "source_name": "mitre-attack",
+          "external_id": "G0002"
+        }
+      ]
+    },
+    {
+      "type": "relationship",
+      "id": "relationship--1",
+      "relationship_type": "uses",
+      "source_ref": "intrusion-set--1",
+      "target_ref": "attack-pattern--1"
     }
   ]
 }

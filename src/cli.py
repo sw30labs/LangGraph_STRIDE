@@ -18,6 +18,10 @@ from src.config import (
 )
 from src.export_pdf import export_artifact_pdf
 from src.inference_client import client_from_config
+from src.intel.advisories import (
+    import_cisa_advisories_file,
+    update_cisa_advisories_online,
+)
 from src.intel.cti import (
     delete_cti_pack,
     import_cisa_kev_file,
@@ -616,6 +620,35 @@ def intel_list_cti(
     output_dir: Annotated[Path | None, typer.Option("--output-dir")] = None,
 ) -> None:
     typer.echo(json.dumps(list_cti_packs(_paths(output_dir=output_dir)), indent=2))
+
+
+@intel_app.command("ingest-cisa-advisories")
+def intel_ingest_cisa_advisories(
+    path: Annotated[Path, typer.Argument(help="CISA advisories RSS/XML file")],
+    limit: Annotated[int, typer.Option("--limit", min=1, max=200)] = 25,
+    output_dir: Annotated[Path | None, typer.Option("--output-dir")] = None,
+) -> None:
+    """Offline ingest of the CISA advisories RSS listing into CTI packs."""
+    typer.echo(
+        json.dumps(
+            import_cisa_advisories_file(_paths(output_dir=output_dir), path, limit=limit),
+            indent=2,
+        )
+    )
+
+
+@intel_app.command("update-cti-advisories")
+def intel_update_cti_advisories(
+    limit: Annotated[int, typer.Option("--limit", min=1, max=200)] = 25,
+    output_dir: Annotated[Path | None, typer.Option("--output-dir")] = None,
+) -> None:
+    """Online pull of CISA joint advisories → CTI packs (public RSS, no API key)."""
+    typer.echo(
+        json.dumps(
+            update_cisa_advisories_online(_paths(output_dir=output_dir), limit=limit),
+            indent=2,
+        )
+    )
 
 
 @intel_app.command("upsert-cti")

@@ -167,6 +167,8 @@ python -m src.cli intel list-cti
 python -m src.cli intel upsert-cti --title "Pack" --techniques T1190,T1059
 python -m src.cli intel ingest-kev path/to/known_exploited_vulnerabilities.json
 python -m src.cli intel update-cti-kev --recent 40 --ransomware 25  # needs network; no API key
+python -m src.cli intel ingest-cisa-advisories path/to/advisories.xml
+python -m src.cli intel update-cti-advisories --limit 25            # needs network; no API key
 
 # PDF export from a saved assessment or scenario JSON
 python -m src.cli export-pdf --json-file output/stride/security_assessment_AA123456_TIMESTAMP.json
@@ -187,7 +189,7 @@ The browser console now includes Applications, Navigator, Intel, Reports (with E
 - `output/workspace/attack_templates.json`: mutable attack-chain library.
 - `output/workspace/intel/nvd/cve.sqlite`: local CVE store (ingest/update NVD).
 - `output/workspace/intel/mitre/techniques.json`: local ATT&CK technique catalog.
-- `output/workspace/intel/cti/packs/`: CTI pack JSON files.
+- `output/workspace/intel/cti/packs/`: CTI pack JSON files (CISA KEV, CISA joint advisories, MITRE ATT&CK groups, and user packs — matched into the scenario CTI stage by technique overlap).
 - `output/workspace/intel/manifest.json`: catalog freshness metadata.
 - `output/stride/`: timestamped security assessments (include `_meta` lineage).
 - `output/feedback/`: STRIDE, DREAD, and final-QA decisions.

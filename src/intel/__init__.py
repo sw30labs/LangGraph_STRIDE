@@ -5,9 +5,9 @@ Online updates only run when the operator asks; tests always use offline
 fixtures so the gate never needs the network.
 """
 
-
 from __future__ import annotations
 
+from src.intel.advisories import import_cisa_advisories_file, update_cisa_advisories_online
 from src.intel.cti import (
     delete_cti_pack,
     ingest_cti_pack,
@@ -33,6 +33,7 @@ from src.intel.nvd import (
 __all__ = [
     "default_cve_db_path",
     "delete_cti_pack",
+    "import_cisa_advisories_file",
     "import_mitre_file",
     "import_nvd_file",
     "ingest_cti_pack",
@@ -45,6 +46,7 @@ __all__ = [
     "search_techniques",
     "seed_demo_cves",
     "technique_count",
+    "update_cisa_advisories_online",
     "update_mitre_online",
     "update_nvd_online",
     "upsert_cti_pack",

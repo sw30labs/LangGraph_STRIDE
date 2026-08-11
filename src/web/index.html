@@ -336,13 +336,16 @@
             <button id="intel-update-nvd" class="button secondary" type="button">Update NVD (online)</button>
             <button id="intel-update-mitre" class="button secondary" type="button">Update MITRE (online)</button>
             <button id="intel-update-cti-kev" class="button secondary" type="button">Update CTI · CISA KEV</button>
+            <button id="intel-update-cti-advisories" class="button secondary" type="button">Update CTI · CISA advisories</button>
           </div>
           <p class="form-hint">
             Offline ingest stays first-class: use
-            <code>python -m src.cli intel ingest-nvd|ingest-mitre|ingest-cti|ingest-kev</code>
+            <code>python -m src.cli intel ingest-nvd|ingest-mitre|ingest-cti|ingest-kev|ingest-cisa-advisories</code>
             on air-gapped boxes. Online buttons start background jobs.
             <strong>CISA KEV</strong> is the free public Known Exploited Vulnerabilities catalog
-            (no API key) → CTI packs under the workspace.
+            (no API key) → CTI packs under the workspace; <strong>CISA advisories</strong> is the
+            joint-advisory RSS listing, and <strong>Update MITRE</strong> also materializes ATT&amp;CK
+            group packs (nation-state actors with technique links).
           </p>
           <div class="panel-header">
             <div>

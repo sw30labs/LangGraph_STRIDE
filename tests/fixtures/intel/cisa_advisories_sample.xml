@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>CISA Cybersecurity Advisories</title>
+    <link>https://www.cisa.gov/news-events/cybersecurity-advisories</link>
+    <description>Test fixture</description>
+    <item>
+      <title>AA25-141A: Russian GRU Targeting Western Logistics Entities</title>
+      <link>https://www.cisa.gov/news-events/cybersecurity-advisories/aa25-141a</link>
+      <pubDate>Tue, 20 May 2026 12:00:00 -0400</pubDate>
+      <description>CISA, FBI, and NSA released this joint advisory on Russian GRU actors conducting espionage against Western logistics companies, exploiting public-facing applications and using command injection for privilege escalation.</description>
+    </item>
+    <item>
+      <title>AA25-100B: PRC State-Sponsored Actors Compromise Telecom Networks</title>
+      <link>https://www.cisa.gov/news-events/cybersecurity-advisories/aa25-100b</link>
+      <pubDate>Wed, 09 Apr 2026 12:00:00 -0400</pubDate>
+      <description>CISA and partners detail PRC-nexus Volt Typhoon activity using authentication bypass and SQL injection against telecom infrastructure.</description>
+    </item>
+    <item>
+      <title>CISA Releases Secure by Design Alert</title>
+      <link>https://www.cisa.gov/news-events/cybersecurity-advisories/sbd-alert-1</link>
+      <pubDate>Mon, 01 Apr 2026 12:00:00 -0400</pubDate>
+      <description>A non-AA alert about secure design principles.</description>
+    </item>
+    <item>
+      <title>#StopRansomware: Interlock Ransomware</title>
+      <link>https://www.cisa.gov/news-events/cybersecurity-advisories/aa25-stop-1</link>
+      <pubDate>Fri, 10 Apr 2026 12:00:00 -0400</pubDate>
+      <description>CISA and FBI released this joint guide on Interlock ransomware operators using drive-by download and remote code execution for initial access.</description>
+    </item>
+  </channel>
+</rss>
