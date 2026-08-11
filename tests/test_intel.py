@@ -1,0 +1,141 @@
+import json
+from pathlib import Path
+
+import httpx
+import pytest
+
+from src.config import PathConfig
+from src.intel.cti import ingest_cti_pack, list_cti_packs, matching_cti_packs
+from src.intel.manifest import intel_status
+from src.intel.mitre import import_mitre_file, search_techniques, update_mitre_online
+from src.intel.nvd import import_nvd_file, query_cves, seed_demo_cves, update_nvd_online
+from src.scenario import ScenarioWorkflow
+from src.config import AppConfig, build_inference_config
+
+ROOT = Path(__file__).resolve().parents[1]
+FIXTURES = ROOT / "tests" / "fixtures" / "intel"
+
+
+def paths(tmp_path: Path) -> PathConfig:
+    return PathConfig(
+        project_root=tmp_path,
+        data_dir=ROOT / "src" / "data",
+        prompts_dir=ROOT / "src" / "prompts",
+        output_dir=tmp_path / "output",
+    )
+
+
+def test_import_nvd_and_query_filters(tmp_path):
+    cfg = paths(tmp_path)
+    result = import_nvd_file(cfg, FIXTURES / "nvd_sample.json")
+    assert result["written"] == 2
+    assert result["cve_count"] == 2
+    high = query_cves(cfg, min_cvss=9.0)
+    assert len(high) == 1
+    assert high[0]["id"] == "CVE-2024-0001"
+    hits = query_cves(cfg, q="disclosure")
+    assert hits[0]["id"] == "CVE-2024-0002"
+    status = intel_status(cfg)
+    assert status["catalogs"]["nvd"]["status"] == "ready"
+    assert status["catalogs"]["nvd"]["cve_count"] == 2
+
+
+def test_seed_demo_cves(tmp_path):
+    cfg = paths(tmp_path)
+    result = seed_demo_cves(cfg)
+    assert result["cve_count"] >= 1
+    assert query_cves(cfg)
+
+
+def test_import_mitre_and_search(tmp_path):
+    cfg = paths(tmp_path)
+    result = import_mitre_file(cfg, FIXTURES / "mitre_sample.json")
+    assert result["technique_count"] == 2  # revoked excluded
+    rows = search_techniques(cfg, "T1190")
+    assert rows[0]["technique_id"] == "T1190"
+    rows = search_techniques(cfg, "powershell")
+    assert rows[0]["technique_id"] == "T1059.001"
+    assert rows[0]["is_subtechnique"] is True
+
+
+def test_cti_ingest_and_match(tmp_path):
+    cfg = paths(tmp_path)
+    ingest_cti_pack(cfg, FIXTURES / "cti_sample.json")
+    packs = list_cti_packs(cfg)
+    assert packs[0]["id"] == "api-threats"
+    matched = matching_cti_packs(cfg, ["T1190"])
+    assert matched[0]["title"] == "API Exposure Campaign Notes"
+
+
+def test_update_nvd_online_uses_mock_transport(tmp_path):
+    cfg = paths(tmp_path)
+    payload = json.loads((FIXTURES / "nvd_sample.json").read_text())
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert "services.nvd.nist.gov" in str(request.url)
+        return httpx.Response(200, json=payload)
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    result = update_nvd_online(cfg, max_pages=1, client=client, sleep_s=0)
+    assert result["written"] == 2
+    assert result["cve_count"] == 2
+
+
+def test_update_mitre_online_uses_mock_transport(tmp_path):
+    cfg = paths(tmp_path)
+    payload = json.loads((FIXTURES / "mitre_sample.json").read_text())
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=payload)
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    result = update_mitre_online(cfg, client=client)
+    assert result["technique_count"] == 2
+
+
+class FakeClient:
+    def __init__(self):
+        self.prompts = []
+
+    def chat(self, messages, **kwargs):
+        self.prompts.append(messages[-1]["content"])
+        return "report body"
+
+
+def test_scenario_cve_uses_nvd_store_and_cti_packs(tmp_path):
+    cfg = paths(tmp_path)
+    import_nvd_file(cfg, FIXTURES / "nvd_sample.json")
+    ingest_cti_pack(cfg, FIXTURES / "cti_sample.json")
+    model = tmp_path / "model.json"
+    model.write_text(
+        json.dumps(
+            {
+                "system_metadata": {
+                    "aa_id": "AA123456",
+                    "Application Name": "Payments",
+                    "SWC Description": "Payment service",
+                    "Solution Description": "Processes payments",
+                    "Platform": ["Linux"],
+                    "Confidentiality": "High",
+                    "Integrity": "High",
+                },
+                "Spoofing": [],
+                "dread_assessment": [],
+                "_meta": {"artifact_id": "tm_AA123456_1", "aa_id": "AA123456"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    client = FakeClient()
+    app = AppConfig(
+        inference=build_inference_config("omlx"),
+        paths=cfg,
+    )
+    path = ScenarioWorkflow(app, client=client).run(
+        model, "API Exposure Attack [New]", min_cvss=9.0
+    )
+    assert path.is_file()
+    assert "CVE-2024-0001" in client.prompts[0]
+    assert "nvd-store" in client.prompts[0]
+    # CTI prompt is second call
+    assert "API Exposure Campaign Notes" in client.prompts[1]

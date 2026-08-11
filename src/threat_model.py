@@ -12,6 +12,7 @@ from langgraph.graph import END, StateGraph
 
 from src.config import AppConfig
 from src.inference_client import OpenAICompatibleClient, client_from_config
+from src.workspace import get_cmdb_entry_legacy, now_iso
 
 STRIDE_CATEGORIES = (
     "Spoofing",
@@ -118,6 +119,7 @@ class ThreatModelWorkflow:
             [{"role": "user", "content": prompt}],
             max_tokens=self.config.inference.max_tokens,
             disable_thinking=self.config.inference.disable_thinking,
+            reasoning_strength=self.config.inference.reasoning_strength,
             require_complete=True,
         )
 
@@ -202,6 +204,8 @@ class ThreatModelWorkflow:
 
     def _save(self, state: ThreatModelState) -> ThreatModelState:
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        aa_id = state["aa_id"]
+        artifact_id = f"tm_{aa_id}_{timestamp}"
         stride_dir = self.config.paths.output_dir / "stride"
         feedback_dir = self.config.paths.output_dir / "feedback"
         stride_dir.mkdir(parents=True, exist_ok=True)
@@ -209,11 +213,24 @@ class ThreatModelWorkflow:
         for name in ("stride", "dread", "final"):
             feedback = state.get(f"{name}_feedback")
             if feedback:
-                path = feedback_dir / f"{name}_feedback_{state['aa_id']}_{timestamp}.json"
+                path = feedback_dir / f"{name}_feedback_{aa_id}_{timestamp}.json"
                 path.write_text(json.dumps(feedback, indent=2), encoding="utf-8")
-        output = stride_dir / f"security_assessment_{state['aa_id']}_{timestamp}.json"
-        output.write_text(json.dumps(state["final_model"], indent=2), encoding="utf-8")
-        return {"saved_path": str(output)}
+        final_model = dict(state["final_model"] or {})
+        final_model["_meta"] = {
+            "artifact_type": "threat_model",
+            "artifact_id": artifact_id,
+            "aa_id": aa_id,
+            "created_at": now_iso(),
+            "provider": self.config.inference.backend.value,
+            "model": self.config.inference.model,
+            "thinking_enabled": not self.config.inference.disable_thinking,
+            "reasoning_strength": self.config.inference.reasoning_strength
+            if not self.config.inference.disable_thinking
+            else None,
+        }
+        output = stride_dir / f"security_assessment_{aa_id}_{timestamp}.json"
+        output.write_text(json.dumps(final_model, indent=2), encoding="utf-8")
+        return {"saved_path": str(output), "final_model": final_model}
 
     def _build_graph(self):
         workflow = StateGraph(ThreatModelState)
@@ -233,7 +250,11 @@ class ThreatModelWorkflow:
         return workflow.compile()
 
     def run(self, aa_id: str) -> Path:
-        cmdb_info = load_cmdb_entry(self.config.paths.data_dir, aa_id)
+        try:
+            cmdb_info = get_cmdb_entry_legacy(self.config.paths, aa_id)
+        except ValueError:
+            # Fall back to packaged data_dir only (pre-workspace callers/tests).
+            cmdb_info = load_cmdb_entry(self.config.paths.data_dir, aa_id)
         initial: ThreatModelState = {
             "aa_id": aa_id,
             "system_desc": str(cmdb_info.get("Solution Description") or ""),

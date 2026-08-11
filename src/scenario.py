@@ -15,6 +15,9 @@ from langgraph.graph import END, StateGraph
 from src.config import AppConfig
 from src.inference_client import OpenAICompatibleClient, client_from_config
 from src.threat_model import STRIDE_CATEGORIES
+from src.intel.cti import format_packs_for_prompt, matching_cti_packs
+from src.intel.nvd import load_cves_for_scenario
+from src.workspace import get_chain_techniques, now_iso
 
 
 class ScenarioState(TypedDict, total=False):
@@ -25,10 +28,13 @@ class ScenarioState(TypedDict, total=False):
     cmdb_info: dict[str, Any]
     selected_template: str
     selected_techniques: list[str]
+    source_threat_model_path: str
+    source_threat_model_id: str
     stride_data: str
     dread_data: str
     controls_data: str
     cve_report: str
+    cve_source: str
     cve_feedback: dict[str, Any]
     cve_approved: bool
     cti_report: str
@@ -79,6 +85,7 @@ class ScenarioWorkflow:
             [{"role": "user", "content": prompt}],
             max_tokens=self.config.inference.max_tokens,
             disable_thinking=self.config.inference.disable_thinking,
+            reasoning_strength=self.config.inference.reasoning_strength,
             require_complete=True,
         )
 
@@ -107,16 +114,25 @@ class ScenarioWorkflow:
             "Development Category": metadata.get("Development Category", ""),
             "CID handling": metadata.get("CID handling", ""),
         }
-        attack_templates = json.loads(
-            (self.config.paths.data_dir / "predefined_attack_templates.json").read_text(
-                encoding="utf-8"
+        try:
+            selected_techniques = get_chain_techniques(
+                self.config.paths, state["attack_template"]
             )
-        )
+        except ValueError:
+            attack_templates = json.loads(
+                (self.config.paths.data_dir / "predefined_attack_templates.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            selected_techniques = attack_templates.get(state["attack_template"], [])
+        source_meta = data.get("_meta") if isinstance(data.get("_meta"), dict) else {}
         controls = load_controls(self.config.paths.data_dir / "control_taxonomy.csv")
         return {
             "cmdb_info": cmdb_info,
             "selected_template": "Default CVE Report Template",
-            "selected_techniques": attack_templates.get(state["attack_template"], []),
+            "selected_techniques": selected_techniques,
+            "source_threat_model_path": str(path),
+            "source_threat_model_id": source_meta.get("artifact_id"),
             "stride_data": json.dumps(
                 {category: data.get(category, []) for category in STRIDE_CATEGORIES}, indent=2
             ),
@@ -125,10 +141,15 @@ class ScenarioWorkflow:
         }
 
     def _generate_cve(self, state: ScenarioState) -> ScenarioState:
-        vulnerabilities = json.loads(
-            (self.config.paths.data_dir / "demo_critical_vulnerability.json").read_text(
-                encoding="utf-8"
-            )
+        try:
+            min_cvss = float(state.get("cvss_score") or 0)
+        except (TypeError, ValueError):
+            min_cvss = 0.0
+        vulnerabilities, cve_source = load_cves_for_scenario(
+            self.config.paths,
+            min_cvss=min_cvss,
+            platform_text=str(state["cmdb_info"].get("Platform") or ""),
+            db_path=state.get("db_path"),
         )
         template = self.prompts["scenario_menu_gen_system_message_cve_agent"]
         prompt = template.replace("- {cveinfo}", "```json\n{cveinfo}\n```").format(
@@ -137,14 +158,24 @@ class ScenarioWorkflow:
             cmdb_info_Platform=state["cmdb_info"]["Platform"],
             cveinfo=_escape_format(json.dumps(vulnerabilities)),
         )
-        prompt += "\n\nGenerate the CVE report following the specified format."
-        return {"cve_report": self._ask(prompt)}
+        prompt += (
+            f"\n\nCVE source: {cve_source}\n"
+            "Generate the CVE report following the specified format."
+        )
+        return {"cve_report": self._ask(prompt), "cve_source": cve_source}
 
     @staticmethod
     def _qa_cve(_: ScenarioState) -> ScenarioState:
         return {"cve_feedback": {"approved": True, "feedback": "Approved"}, "cve_approved": True}
 
     def _generate_cti(self, state: ScenarioState) -> ScenarioState:
+        technique_ids = []
+        for label in state.get("selected_techniques") or []:
+            match = re.search(r"(T\d{4}(?:\.\d{3})?)", str(label))
+            if match:
+                technique_ids.append(match.group(1))
+        packs = matching_cti_packs(self.config.paths, technique_ids)
+        pack_block = format_packs_for_prompt(packs)
         template = self.prompts["scenario_menu_gen_system_message_cti_agent"]
         prompt = template.format(
             sample_risk_report=_escape_format(self.templates["risk_report"]["content"]),
@@ -154,6 +185,13 @@ class ScenarioWorkflow:
             dread=_escape_format(state["dread_data"]),
         )
         prompt += f"\n\nGenerate the CTI report using this CVE report:\n{state['cve_report']}"
+        if pack_block:
+            prompt += f"\n\nLocal CTI packs (use as context, do not invent citations):\n{pack_block}"
+        if technique_ids:
+            prompt += (
+                "\n\nAttack-chain MITRE techniques: "
+                + ", ".join(technique_ids)
+            )
         return {"cti_report": self._ask(prompt)}
 
     @staticmethod
@@ -204,8 +242,16 @@ class ScenarioWorkflow:
         title = re.sub(r"[^A-Za-z0-9._-]+", "_", state["attack_template"]).strip("_")
         output_dir = self.config.paths.output_dir / "scenarios"
         output_dir.mkdir(parents=True, exist_ok=True)
-        output = output_dir / f"{title}_{state['cmdb_info']['AA ID']}_{now:%Y%m%d}.json"
+        aa_id = str(state["cmdb_info"].get("AA ID") or "")
+        stamp = now.strftime("%Y%m%d%H%M%S")
+        artifact_id = f"sc_{aa_id}_{stamp}"
+        output = output_dir / f"{title}_{aa_id}_{stamp}.json"
         info = state["cmdb_info"]
+        source_path = state.get("source_threat_model_path") or state.get("json_file") or ""
+        try:
+            source_rel = str(Path(source_path).resolve().relative_to(self.config.paths.project_root.resolve()))
+        except Exception:
+            source_rel = str(source_path)
         report = {
             "Attack_Template": state["attack_template"],
             "titleThreatScenario": title,
@@ -217,8 +263,8 @@ class ScenarioWorkflow:
             "SWC_Externally_Facing": info["Externally facing"],
             "Confidentiality_Rating": info["Confidentiality"],
             "Integrity_Rating": info["Integrity"],
-            "Availability_Rating": info["Technology BCM"],
-            "CID_Handling": info["CID handling"],
+            "Availability_Rating": info.get("Technology BCM") or info.get("Technology BCH") or "",
+            "CID_Handling": info.get("CID handling") or "",
             "CVSS_Tshld": state["cvss_score"],
             "Threat_Report_Date": now.strftime("%d %B %Y, %H:%M:%S"),
             "CVE_Report_Date": now.strftime("%d %B %Y, %H:%M:%S"),
@@ -231,6 +277,21 @@ class ScenarioWorkflow:
             "Provider": self.config.inference.backend.value,
             "Complete": True,
             "customer_platforms_supporting_the_customer_Application": info["Platform"],
+            "_meta": {
+                "artifact_type": "scenario",
+                "artifact_id": artifact_id,
+                "aa_id": aa_id,
+                "source_threat_model_path": source_rel,
+                "source_threat_model_id": state.get("source_threat_model_id"),
+                "attack_template": state["attack_template"],
+                "created_at": now_iso(),
+                "provider": self.config.inference.backend.value,
+                "model": self.config.inference.model,
+                "thinking_enabled": not self.config.inference.disable_thinking,
+                "reasoning_strength": self.config.inference.reasoning_strength
+                if not self.config.inference.disable_thinking
+                else None,
+            },
         }
         output.write_text(json.dumps(report, indent=4), encoding="utf-8")
         return {"final_output_path": str(output), "complete": True}

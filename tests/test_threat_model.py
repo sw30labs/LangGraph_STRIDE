@@ -75,7 +75,13 @@ def test_workflow_writes_model_and_feedback(tmp_path):
         ),
     )
     path = ThreatModelWorkflow(config, client=client).run("AA123456")
-    assert json.loads(path.read_text()) == final
+    saved = json.loads(path.read_text())
+    assert saved["system_metadata"] == final["system_metadata"]
+    assert saved["complete"] is True
+    assert saved["_meta"]["artifact_type"] == "threat_model"
+    assert saved["_meta"]["aa_id"] == "AA123456"
+    assert saved["_meta"]["artifact_id"].startswith("tm_AA123456_")
+    assert saved["_meta"]["provider"] == "omlx"
     feedback = sorted((tmp_path / "output" / "feedback").glob("*.json"))
     assert len(feedback) == 3
     assert len(client.prompts) == 5

@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -74,6 +75,11 @@ def test_workflow_generates_all_reports_and_uses_platform_field(tmp_path):
     assert report["CTI_Report"] == "CTI report"
     assert report["Threat_Report"] == "Threat scenario report"
     assert report["customer_platforms_supporting_the_customer_Application"] == "Linux"
+    assert report["_meta"]["artifact_type"] == "scenario"
+    assert report["_meta"]["aa_id"] == "AA123456"
+    assert report["_meta"]["attack_template"] == "Zero-Day Exploit [New]"
+    assert "source_threat_model_path" in report["_meta"]
+    assert re.search(r"_\d{14}\.json$", path.name)
     assert len(client.prompts) == 3
 
 

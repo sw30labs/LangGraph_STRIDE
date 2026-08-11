@@ -1,7 +1,7 @@
 import httpx
 import pytest
 
-from src.config import InferenceBackend, build_inference_config
+from src.config import InferenceBackend, build_inference_config, parse_reasoning_strength
 from src.inference_client import (
     InferenceTruncatedError,
     OpenAICompatibleClient,
@@ -9,6 +9,7 @@ from src.inference_client import (
     client_from_config,
     normalize_base_url,
     strip_thinking,
+    with_reasoning_strength,
 )
 
 
@@ -28,6 +29,25 @@ def test_normalize_root_and_dashboard_urls():
 )
 def test_strip_thinking(value, expected):
     assert strip_thinking(value) == expected
+
+
+def test_parse_reasoning_strength_accepts_muse_levels():
+    assert parse_reasoning_strength(None) == "high"
+    assert parse_reasoning_strength("LOW") == "low"
+    assert parse_reasoning_strength("xhigh") == "xhigh"
+    with pytest.raises(ValueError, match="reasoning_strength"):
+        parse_reasoning_strength("ultra")
+
+
+def test_with_reasoning_strength_injects_system_message():
+    messages = with_reasoning_strength([{"role": "user", "content": "hi"}], "medium")
+    assert messages[0] == {"role": "system", "content": "Reasoning strength: medium"}
+    assert messages[1]["role"] == "user"
+
+
+def test_with_reasoning_strength_skips_when_already_present():
+    original = [{"role": "system", "content": "Reasoning strength: low\nBe brief."}]
+    assert with_reasoning_strength(original, "high") is original
 
 
 def _client(handler):
@@ -52,6 +72,53 @@ def test_chat_omits_full_context_reservation():
         )
 
     assert _client(handler).chat([{"role": "user", "content": "x"}], max_tokens=32) == "ok"
+
+
+def test_chat_disables_thinking_via_template_kwargs():
+    def handler(request):
+        payload = __import__("json").loads(request.content)
+        assert payload["chat_template_kwargs"] == {"enable_thinking": False}
+        assert payload["messages"] == [{"role": "user", "content": "x"}]
+        return httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": "ok"}, "finish_reason": "stop"}]},
+        )
+
+    assert (
+        _client(handler).chat(
+            [{"role": "user", "content": "x"}],
+            max_tokens=8,
+            disable_thinking=True,
+        )
+        == "ok"
+    )
+
+
+def test_chat_enables_thinking_with_reasoning_strength():
+    def handler(request):
+        payload = __import__("json").loads(request.content)
+        assert payload["chat_template_kwargs"] == {
+            "enable_thinking": True,
+            "reasoning_strength": "xhigh",
+        }
+        assert payload["messages"][0] == {
+            "role": "system",
+            "content": "Reasoning strength: xhigh",
+        }
+        return httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": "ok"}, "finish_reason": "stop"}]},
+        )
+
+    assert (
+        _client(handler).chat(
+            [{"role": "user", "content": "x"}],
+            max_tokens=8,
+            disable_thinking=False,
+            reasoning_strength="xhigh",
+        )
+        == "ok"
+    )
 
 
 def test_chat_raises_when_complete_output_is_truncated():

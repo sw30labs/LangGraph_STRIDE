@@ -30,6 +30,7 @@ flowchart LR
 | `src/threat_model.py` | Six-node STRIDE/DREAD generation, QA retry, final QA, and persistence graph |
 | `src/scenario.py` | Eight-node CVE/CTI/scenario selection, generation, approval, and persistence graph |
 | `src/gui.py` + `src/web/` | Local job console, report browser, logs, and safe static/JSON serving |
+| `src/workspace.py` | Workspace CMDB, attack-chain library, and Application → model → scenario navigator |
 | Platform helpers | Checked DGX/vLLM and Apple/oMLX setup, launch, doctor, and smoke paths |
 
 ## Platform defaults
@@ -96,7 +97,9 @@ Shell exports win over `.env`. Root or dashboard endpoint URLs are normalized to
 | `STRIDE_DEVICE` | Host execution label: `cuda`, `mps`, or `cpu` |
 | `STRIDE_CONCURRENCY` | Workflow concurrency default; Spark stays at two |
 | `STRIDE_CONTEXT_SIZE`, `STRIDE_MAX_TOKENS` | Served context and requested-output ceiling |
-| `STRIDE_ENABLE_THINKING` | Set `1` only when reasoning output is wanted; thinking tags are still stripped |
+| `STRIDE_ENABLE_THINKING` | Set `1` to enable thinking/reasoning; tags are still stripped from final content |
+| `STRIDE_REASONING_STRENGTH` | Muse Glimmer budget when thinking is on: `low`, `medium`, `high` (default), `xhigh` |
+| `NVD_API_KEY` | Optional key for higher rate limits on `intel update-nvd` |
 | `STRIDE_METRICS_PORT` | Optional Prometheus endpoint for a `threat-model` run; unset by default |
 | `VLLM_BASE_URL`, `VLLM_API_KEY`, `VLLM_MODEL` | DGX/vLLM persona; local key defaults to `local` |
 | `VLLM_MAX_MODEL_LEN` | Compose ceiling and exact-service readiness requirement |
@@ -117,6 +120,9 @@ python -m src.cli models --inference-url http://127.0.0.1:8000
 python -m src.cli smoke-inference --inference-url http://127.0.0.1:8000
 
 # STRIDE + DREAD for the bundled sample application
+# Muse Glimmer comparison: off vs on with a budget level
+#   python -m src.cli threat-model AA987654 --backend openai --no-thinking
+#   python -m src.cli threat-model AA987654 --backend openai --thinking --reasoning-strength medium
 python -m src.cli threat-model AA123456
 
 # CVE + CTI + threat scenario from the generated model
@@ -127,20 +133,46 @@ python -m src.cli scenario \
 
 # Local browser console
 python -m src.cli serve --host 127.0.0.1 --port 8765
+
+# Workspace CMDB + attack chains (seeded from package fixtures into output/workspace/)
+python -m src.cli cmdb seed
+python -m src.cli cmdb list
+python -m src.cli cmdb upsert --aa-id AA000001 --name "New App" --platform "Linux"
+python -m src.cli chains list
+python -m src.cli chains show "API Exposure Attack [New]"
+python -m src.cli navigator
+
+# Intel catalogs (offline first; online is operator-triggered only)
+python -m src.cli intel status
+python -m src.cli intel seed-nvd
+python -m src.cli intel ingest-nvd path/to/nvd.json
+python -m src.cli intel update-nvd --max-pages 2          # needs network; optional NVD_API_KEY
+python -m src.cli intel search-cve --min-cvss 8.5 --q linux
+python -m src.cli intel ingest-mitre path/to/enterprise-attack.json
+python -m src.cli intel update-mitre                      # needs network
+python -m src.cli intel search-mitre --q T1190
+python -m src.cli intel ingest-cti path/to/pack.json
+python -m src.cli intel list-cti
 ```
 
-The retained `--db-path` scenario option is compatible with the source CLI but reserved for a future external CVE database. The current port deliberately uses the tracked deterministic vulnerability fixture.
+Scenario CVE generation prefers the local NVD SQLite store (`output/workspace/intel/nvd/cve.sqlite` or `--db-path`). If the store is empty, it falls back to the packaged demo CVE fixture.
 
 ## Inputs and outputs
 
-- `src/data/cmdb.json`: three public sample application records.
-- `src/data/predefined_attack_templates.json`: 27 MITRE ATT&CK-oriented templates.
-- `src/data/demo_critical_vulnerability.json`: deterministic CVE input.
+- `src/data/cmdb.json`: three public sample application records (**seed only**).
+- `src/data/predefined_attack_templates.json`: 27 MITRE ATT&CK-oriented **attack chains** (technique lists; seed only).
+- `src/data/demo_critical_vulnerability.json`: deterministic CVE input / NVD fallback.
 - `src/data/control_taxonomy.csv`: 20 source rows / 19 unique control IDs.
 - `src/prompts/`: current STRIDE, DREAD, QA, CVE, CTI, and scenario prompt assets.
-- `output/stride/`: timestamped security assessments.
+- `output/workspace/cmdb.json`: mutable CMDB after `cmdb seed` / GUI edits.
+- `output/workspace/attack_templates.json`: mutable attack-chain library.
+- `output/workspace/intel/nvd/cve.sqlite`: local CVE store (ingest/update NVD).
+- `output/workspace/intel/mitre/techniques.json`: local ATT&CK technique catalog.
+- `output/workspace/intel/cti/packs/`: CTI pack JSON files.
+- `output/workspace/intel/manifest.json`: catalog freshness metadata.
+- `output/stride/`: timestamped security assessments (include `_meta` lineage).
 - `output/feedback/`: STRIDE, DREAD, and final-QA decisions.
-- `output/scenarios/`: dated combined scenario reports.
+- `output/scenarios/`: second-resolution scenario reports with source threat-model lineage.
 
 `output/`, `logs/`, `.env`, local model caches, and virtual environments are gitignored.
 

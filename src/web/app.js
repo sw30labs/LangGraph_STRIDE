@@ -62,9 +62,70 @@ function fillProviderSelect(select, defaultProvider) {
   }
 }
 
+function thinkingConfig() {
+  return (
+    appState.status?.thinking || {
+      enabled: false,
+      reasoning_strength: "high",
+      reasoning_strengths: ["low", "medium", "high", "xhigh"],
+    }
+  );
+}
+
+function fillReasoningSelect(select, preferred) {
+  const strengths = thinkingConfig().reasoning_strengths || ["low", "medium", "high", "xhigh"];
+  const current = preferred || select.value || thinkingConfig().reasoning_strength || "high";
+  select.replaceChildren();
+  for (const strength of strengths) {
+    const option = document.createElement("option");
+    option.value = strength;
+    option.textContent = strength;
+    select.appendChild(option);
+  }
+  select.value = strengths.includes(current) ? current : strengths[0];
+}
+
+function syncThinkingControls(prefix) {
+  const thinking = $(`${prefix}-thinking`);
+  const strength = $(`${prefix}-reasoning-strength`);
+  const wrap = $(`${prefix}-reasoning-wrap`);
+  if (!thinking || !strength || !wrap) return;
+  const enabled = thinking.value === "on";
+  strength.disabled = !enabled;
+  wrap.classList.toggle("is-disabled", !enabled);
+}
+
+function populateThinkingControls() {
+  const defaults = thinkingConfig();
+  for (const prefix of ["model", "scenario"]) {
+    const thinking = $(`${prefix}-thinking`);
+    const strength = $(`${prefix}-reasoning-strength`);
+    if (!thinking || !strength) continue;
+    if (!thinking.dataset.initialized) {
+      thinking.value = defaults.enabled ? "on" : "off";
+      thinking.dataset.initialized = "1";
+    }
+    fillReasoningSelect(strength, strength.dataset.initialized ? strength.value : defaults.reasoning_strength);
+    strength.dataset.initialized = "1";
+    syncThinkingControls(prefix);
+  }
+}
+
+function thinkingPayload(prefix) {
+  const thinking = $(`${prefix}-thinking`);
+  const strength = $(`${prefix}-reasoning-strength`);
+  const enabled = thinking?.value === "on";
+  const payload = { thinking: enabled };
+  if (enabled && strength?.value) {
+    payload.reasoning_strength = strength.value;
+  }
+  return payload;
+}
+
 function populateProviderControls() {
   fillProviderSelect($("model-provider"), $("model-provider").value || appState.status.provider.default);
   fillProviderSelect($("scenario-provider"), $("scenario-provider").value || appState.status.provider.default);
+  populateThinkingControls();
   const provider = providerById(appState.status.provider.default);
   const chip = $("default-provider");
   chip.textContent = provider ? `${provider.label} · ${provider.model}` : "Provider";
@@ -329,12 +390,15 @@ function bindEvents() {
   $("attack-template").addEventListener("change", renderTechniques);
   $("model-provider").addEventListener("change", () => updateProviderState("model-provider", "model-provider-state"));
   $("scenario-provider").addEventListener("change", () => updateProviderState("scenario-provider", "scenario-provider-state"));
+  $("model-thinking").addEventListener("change", () => syncThinkingControls("model"));
+  $("scenario-thinking").addEventListener("change", () => syncThinkingControls("scenario"));
 
   $("model-form").addEventListener("submit", (event) => {
     event.preventDefault();
     submitJob("/api/jobs/model", {
       aa_id: $("aa-id").value,
       provider: $("model-provider").value,
+      ...thinkingPayload("model"),
     }).catch((error) => showToast(error.message));
   });
 
@@ -346,6 +410,7 @@ function bindEvents() {
       provider: $("scenario-provider").value,
       min_cvss: $("min-cvss").value,
       db_path: "cve_database.db",
+      ...thinkingPayload("scenario"),
     }).catch((error) => showToast(error.message));
   });
 
@@ -379,3 +444,135 @@ refreshStatus()
     showToast(error.message);
     $("workspace").textContent = "Workspace unavailable";
   });
+
+/* ── Decorative layers below; application logic above is unchanged ── */
+
+// Ambient background: drifting teal dots linked by faint cyan lines,
+// gently repelled by the cursor. Purely decorative.
+(function initAmbientBackground() {
+  const canvas = document.getElementById("bg-canvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const COUNT = 70;
+  const LINK = 130;
+  const mouse = { x: -9999, y: -9999 };
+  let width = 0;
+  let height = 0;
+  let points = [];
+  let frameId = null;
+
+  function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (!points.length) {
+      points = Array.from({ length: COUNT }, () => ({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        vx: (Math.random() - 0.5) * 0.28,
+        vy: (Math.random() - 0.5) * 0.28,
+        r: Math.random() * 1.5 + 0.5,
+      }));
+    }
+  }
+
+  function tick() {
+    frameId = null;
+    ctx.clearRect(0, 0, width, height);
+    for (const point of points) {
+      point.x += point.vx;
+      point.y += point.vy;
+      const dx = point.x - mouse.x;
+      const dy = point.y - mouse.y;
+      const distance = Math.hypot(dx, dy);
+      if (distance < 140 && distance > 0.1) {
+        point.x += (dx / distance) * 0.5;
+        point.y += (dy / distance) * 0.5;
+      }
+      if (point.x < -10) point.x = width + 10;
+      if (point.x > width + 10) point.x = -10;
+      if (point.y < -10) point.y = height + 10;
+      if (point.y > height + 10) point.y = -10;
+    }
+    ctx.lineWidth = 0.6;
+    for (let i = 0; i < COUNT; i += 1) {
+      for (let j = i + 1; j < COUNT; j += 1) {
+        const a = points[i];
+        const b = points[j];
+        const distance = Math.hypot(a.x - b.x, a.y - b.y);
+        if (distance < LINK) {
+          ctx.strokeStyle = `rgba(34,211,238,${(1 - distance / LINK) * 0.09})`;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+        }
+      }
+    }
+    ctx.fillStyle = "rgba(94,234,212,0.4)";
+    for (const point of points) {
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, point.r, 0, 7);
+      ctx.fill();
+    }
+    frameId = window.requestAnimationFrame(tick);
+  }
+
+  function start() {
+    if (frameId === null) frameId = window.requestAnimationFrame(tick);
+  }
+
+  function stop() {
+    if (frameId !== null) {
+      window.cancelAnimationFrame(frameId);
+      frameId = null;
+    }
+  }
+
+  window.addEventListener("resize", resize);
+  window.addEventListener("mousemove", (event) => {
+    mouse.x = event.clientX;
+    mouse.y = event.clientY;
+    document.documentElement.style.setProperty("--mx", `${event.clientX}px`);
+    document.documentElement.style.setProperty("--my", `${event.clientY}px`);
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) stop();
+    else start();
+  });
+
+  resize();
+  start();
+})();
+
+// Boot overlay: brief progress sequence, then fade out and remove.
+// A CSS failsafe animation hides it even if this script never runs.
+(function initBootOverlay() {
+  const boot = document.getElementById("boot");
+  if (!boot) return;
+  const fill = document.getElementById("boot-fill");
+  const log = document.getElementById("boot-log");
+  const steps = [
+    "loading workspace…",
+    "connecting inference providers…",
+    "reading output library…",
+    "rendering console…",
+  ];
+  let index = 0;
+  const timer = window.setInterval(() => {
+    if (index >= steps.length) return;
+    if (log) log.textContent = steps[index];
+    index += 1;
+    if (fill) fill.style.width = `${(index / (steps.length + 1)) * 100}%`;
+  }, 170);
+  window.setTimeout(() => {
+    window.clearInterval(timer);
+    if (fill) fill.style.width = "100%";
+    boot.classList.add("done");
+    boot.addEventListener("transitionend", () => boot.remove(), { once: true });
+    window.setTimeout(() => boot.remove(), 1200);
+  }, 1000);
+})();

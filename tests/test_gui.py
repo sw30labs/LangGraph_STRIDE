@@ -80,6 +80,65 @@ def test_job_builders_use_canonical_cli_and_provider_alias(gui_workspace, monkey
     assert "--data-dir" in scenario.command
 
 
+def test_job_builders_pass_thinking_controls(gui_workspace, monkeypatch):
+    model_file = gui_workspace / "output" / "model.json"
+    model_file.write_text("{}")
+
+    def capture(kind, command):
+        return gui.Job("test", kind, command)
+
+    monkeypatch.setattr(gui, "start_job", capture)
+    model = gui.build_model_job(
+        {
+            "aa_id": "AA1",
+            "provider": "openai",
+            "thinking": True,
+            "reasoning_strength": "medium",
+        }
+    )
+    scenario = gui.build_scenario_job(
+        {
+            "json_file": "output/model.json",
+            "attack_template": "Template",
+            "provider": "openai",
+            "thinking": False,
+        }
+    )
+
+    assert "--thinking" in model.command
+    assert model.command[model.command.index("--reasoning-strength") + 1] == "medium"
+    assert "--no-thinking" in scenario.command
+    assert "--reasoning-strength" not in scenario.command
+
+
+def test_status_exposes_thinking_defaults(gui_workspace):
+    status = gui.status_payload()
+    assert status["thinking"]["reasoning_strengths"] == ["low", "medium", "high", "xhigh"]
+    assert status["thinking"]["reasoning_strength"] in status["thinking"]["reasoning_strengths"]
+    assert isinstance(status["thinking"]["enabled"], bool)
+    assert "navigator" in status
+    assert "counts" in status["navigator"]
+    assert status["attack_templates"]
+    assert "id" in status["attack_templates"][0]
+    assert "techniques" in status["attack_templates"][0]
+
+
+def test_cmdb_and_chain_api_mutations(gui_workspace):
+    row = gui.upsert_cmdb_entry(
+        gui.CONFIG.paths,
+        {"aa_id": "AA000001", "name": "API App", "platform": ["Linux"]},
+    )
+    assert row["aa_id"] == "AA000001"
+    chain = gui.upsert_chain(
+        gui.CONFIG.paths,
+        {"name": "GUI Chain", "steps": ["Phishing (T1566)"]},
+    )
+    assert chain["steps"][0]["technique_id"] == "T1566"
+    status = gui.status_payload()
+    assert any(item["aa_id"] == "AA000001" for item in status["cmdb"])
+    assert any(item["name"] == "GUI Chain" for item in status["attack_templates"])
+
+
 def test_http_status_jobs_and_static_assets(gui_workspace):
     server = ThreadingHTTPServer(("127.0.0.1", 0), gui.GuiHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)

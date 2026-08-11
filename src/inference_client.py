@@ -33,6 +33,25 @@ def strip_thinking(value: str) -> str:
     return cleaned.strip()
 
 
+def with_reasoning_strength(
+    messages: list[dict[str, object]],
+    reasoning_strength: str,
+) -> list[dict[str, object]]:
+    """Ensure Muse-style `Reasoning strength: <level>` is present as a system message."""
+    marker = "reasoning strength:"
+    strength_line = f"Reasoning strength: {reasoning_strength}"
+    for message in messages:
+        if message.get("role") != "system":
+            continue
+        content = str(message.get("content") or "")
+        if marker in content.casefold():
+            return messages
+        updated = dict(message)
+        updated["content"] = f"{content.rstrip()}\n{strength_line}".lstrip()
+        return [updated if item is message else item for item in messages]
+    return [{"role": "system", "content": strength_line}, *messages]
+
+
 class OpenAICompatibleClient:
     """Small shared client used by vLLM, oMLX, and explicit OpenAI endpoints."""
 
@@ -112,13 +131,28 @@ class OpenAICompatibleClient:
         *,
         max_tokens: int | None = None,
         disable_thinking: bool = True,
+        reasoning_strength: str = "high",
         require_complete: bool = False,
     ) -> str:
-        payload: dict[str, object] = {"model": self.model, "messages": messages}
+        request_messages = (
+            messages
+            if disable_thinking
+            else with_reasoning_strength(messages, reasoning_strength)
+        )
+        payload: dict[str, object] = {"model": self.model, "messages": request_messages}
         if max_tokens is not None and max_tokens < self.context_size:
             payload["max_tokens"] = max_tokens
         if disable_thinking:
+            # Qwen-style off switch. Muse Glimmer may still emit reasoning_content;
+            # use a low reasoning_strength when you need minimal thinking instead.
             payload["chat_template_kwargs"] = {"enable_thinking": False}
+        else:
+            # Muse Glimmer: low | medium | high | xhigh via reasoning_strength.
+            # Qwen-style servers honor enable_thinking=true.
+            payload["chat_template_kwargs"] = {
+                "enable_thinking": True,
+                "reasoning_strength": reasoning_strength,
+            }
 
         body = self._post_chat(payload)
         choices = body.get("choices") or []

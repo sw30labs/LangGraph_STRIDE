@@ -17,7 +17,43 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
-from src.config import AppConfig, InferenceBackend, build_inference_config, parse_backend
+from src.config import (
+    REASONING_STRENGTHS,
+    AppConfig,
+    InferenceBackend,
+    build_inference_config,
+    parse_backend,
+    parse_reasoning_strength,
+)
+from src.intel.cti import (
+    delete_cti_pack,
+    ingest_cti_pack,
+    list_cti_packs,
+    upsert_cti_pack,
+)
+from src.intel.manifest import intel_status
+from src.intel.mitre import import_mitre_file, search_techniques, update_mitre_online
+from src.intel.nvd import (
+    import_nvd_file,
+    query_cves,
+    seed_demo_cves,
+    update_nvd_online,
+)
+from src.workspace import (
+    build_navigator,
+    chain_technique_labels,
+    delete_chain,
+    delete_cmdb_entry,
+    get_chain,
+    get_cmdb_entry,
+    load_chains,
+    load_cmdb,
+    seed_attack_templates,
+    seed_cmdb,
+    seed_workspace,
+    upsert_chain,
+    upsert_cmdb_entry,
+)
 
 WEB_DIR = Path(__file__).with_name("web")
 MAX_BODY_BYTES = 1_000_000
@@ -103,32 +139,39 @@ def list_json_outputs(subdir: str) -> list[dict[str, Any]]:
 
 
 def load_cmdb_entries() -> list[dict[str, Any]]:
-    entries = load_json_file(CONFIG.paths.data_dir / "cmdb.json", [])
-    if not isinstance(entries, list):
-        return []
     return [
         {
-            "aa_id": row.get("AA ID", ""),
-            "name": row.get("Application Name", ""),
-            "description": row.get("SWC Description", ""),
-            "platform": row.get("Platform", []),
-            "confidentiality": row.get("Confidentiality", ""),
-            "integrity": row.get("Integrity", ""),
-            "externally_facing": row.get("Externally facing", ""),
-            "development_category": row.get("Development Category", ""),
+            "aa_id": row.get("aa_id", ""),
+            "name": row.get("name", ""),
+            "description": row.get("swc_description", ""),
+            "solution_description": row.get("solution_description", ""),
+            "owner_stream": row.get("owner_stream", ""),
+            "platform": row.get("platform", []),
+            "confidentiality": row.get("confidentiality", ""),
+            "integrity": row.get("integrity", ""),
+            "availability": row.get("availability", ""),
+            "externally_facing": row.get("externally_facing", ""),
+            "development_category": row.get("development_category", ""),
+            "cid_handling": row.get("cid_handling", ""),
+            "updated_at": row.get("updated_at", ""),
         }
-        for row in entries
-        if isinstance(row, dict)
+        for row in load_cmdb(CONFIG.paths)
     ]
 
 
 def load_attack_templates() -> list[dict[str, Any]]:
-    data = load_json_file(CONFIG.paths.data_dir / "predefined_attack_templates.json", {})
-    if not isinstance(data, dict):
-        return []
     return [
-        {"name": name, "techniques": techniques if isinstance(techniques, list) else []}
-        for name, techniques in sorted(data.items())
+        {
+            "id": chain["id"],
+            "name": chain["name"],
+            "description": chain.get("description") or "",
+            "tags": chain.get("tags") or [],
+            "techniques": chain_technique_labels(chain),
+            "steps": chain.get("steps") or [],
+            "updated_at": chain.get("updated_at") or "",
+            "source": chain.get("source") or "",
+        }
+        for chain in sorted(load_chains(CONFIG.paths), key=lambda item: item["name"].casefold())
     ]
 
 
@@ -156,17 +199,65 @@ def provider_status() -> dict[str, Any]:
     return {"default": CONFIG.inference.backend.value, "providers": providers}
 
 
+def thinking_defaults() -> dict[str, Any]:
+    return {
+        "enabled": not CONFIG.inference.disable_thinking,
+        "reasoning_strength": CONFIG.inference.reasoning_strength,
+        "reasoning_strengths": list(REASONING_STRENGTHS),
+    }
+
+
+def parse_thinking_flag(data: dict[str, Any]) -> bool | None:
+    """Return CLI thinking override, or None to keep env/config default."""
+    if "thinking" not in data and "enable_thinking" not in data:
+        return None
+    raw = data["thinking"] if "thinking" in data else data["enable_thinking"]
+    if isinstance(raw, bool):
+        return raw
+    if isinstance(raw, (int, float)):
+        return bool(raw)
+    text = str(raw).strip().lower()
+    if text in {"1", "true", "yes", "on", "enabled"}:
+        return True
+    if text in {"0", "false", "no", "off", "disabled"}:
+        return False
+    raise ValueError("thinking must be a boolean")
+
+
+def thinking_cli_arguments(data: dict[str, Any]) -> list[str]:
+    """Map GUI thinking controls onto CLI flags."""
+    args: list[str] = []
+    thinking = parse_thinking_flag(data)
+    if thinking is True:
+        args.append("--thinking")
+    elif thinking is False:
+        args.append("--no-thinking")
+    if "reasoning_strength" in data and data.get("reasoning_strength") not in (None, ""):
+        strength = parse_reasoning_strength(str(data.get("reasoning_strength")))
+        args.extend(["--reasoning-strength", strength])
+    return args
+
+
 def status_payload() -> dict[str, Any]:
     with JOBS_LOCK:
         jobs = [
             job.snapshot()
             for job in sorted(JOBS.values(), key=lambda item: item.started_at, reverse=True)
         ]
+    navigator = build_navigator(CONFIG.paths)
     return {
         "workspace": str(CONFIG.paths.project_root),
+        "workspace_paths": {
+            "output_dir": str(CONFIG.paths.output_dir),
+            "workspace_dir": str(CONFIG.paths.workspace_dir),
+            "intel_dir": str(CONFIG.paths.intel_dir),
+        },
         "provider": provider_status(),
+        "thinking": thinking_defaults(),
         "cmdb": load_cmdb_entries(),
         "attack_templates": load_attack_templates(),
+        "navigator": navigator,
+        "intel": intel_status(CONFIG.paths),
         "outputs": {
             "stride": list_json_outputs("stride"),
             "scenarios": list_json_outputs("scenarios"),
@@ -174,6 +265,35 @@ def status_payload() -> dict[str, Any]:
         },
         "jobs": jobs,
     }
+
+
+def build_intel_job(data: dict[str, Any]) -> Job:
+    """Background CLI job for long-running online intel updates."""
+    catalog = str(data.get("catalog") or "").strip().lower()
+    mode = str(data.get("mode") or "online").strip().lower()
+    if catalog not in {"nvd", "mitre"}:
+        raise ValueError("catalog must be nvd or mitre")
+    if mode not in {"online", "offline"}:
+        raise ValueError("mode must be online or offline")
+    command = [sys.executable, "-m", "src.cli", "intel"]
+    if catalog == "nvd" and mode == "online":
+        command.append("update-nvd")
+        if data.get("max_pages") is not None:
+            command.extend(["--max-pages", str(int(data["max_pages"]))])
+    elif catalog == "nvd" and mode == "offline":
+        source = str(data.get("path") or "").strip()
+        if not source:
+            raise ValueError("path is required for offline NVD ingest")
+        command.extend(["ingest-nvd", str(ensure_repo_file(source))])
+    elif catalog == "mitre" and mode == "online":
+        command.append("update-mitre")
+    else:
+        source = str(data.get("path") or "").strip()
+        if not source:
+            raise ValueError("path is required for offline MITRE ingest")
+        command.extend(["ingest-mitre", str(ensure_repo_file(source))])
+    command.extend(["--output-dir", str(CONFIG.paths.output_dir)])
+    return start_job(f"intel-{catalog}-{mode}", command)
 
 
 def read_body(handler: BaseHTTPRequestHandler) -> dict[str, Any]:
@@ -250,6 +370,7 @@ def build_model_job(data: dict[str, Any]) -> Job:
         aa_id,
         "--backend",
         backend,
+        *thinking_cli_arguments(data),
         *_path_arguments(),
     ]
     return start_job("threat-model", command)
@@ -278,6 +399,7 @@ def build_scenario_job(data: dict[str, Any]) -> Job:
         attack_template,
         "--backend",
         backend,
+        *thinking_cli_arguments(data),
         "--min-cvss",
         str(min_cvss),
         "--db-path",
@@ -298,6 +420,45 @@ class GuiHandler(BaseHTTPRequestHandler):
         try:
             if parsed.path == "/api/status":
                 self.send_json(status_payload())
+            elif parsed.path == "/api/navigator":
+                self.send_json(build_navigator(CONFIG.paths))
+            elif parsed.path == "/api/cmdb":
+                self.send_json(load_cmdb_entries())
+            elif parsed.path.startswith("/api/cmdb/"):
+                aa_id = unquote(parsed.path.rsplit("/", 1)[-1])
+                self.send_json(get_cmdb_entry(CONFIG.paths, aa_id))
+            elif parsed.path == "/api/chains":
+                self.send_json(load_attack_templates())
+            elif parsed.path.startswith("/api/chains/"):
+                chain_id = unquote(parsed.path.rsplit("/", 1)[-1])
+                chain = get_chain(CONFIG.paths, chain_id)
+                self.send_json(
+                    {
+                        **chain,
+                        "techniques": chain_technique_labels(chain),
+                    }
+                )
+            elif parsed.path == "/api/intel/status":
+                self.send_json(intel_status(CONFIG.paths))
+            elif parsed.path == "/api/cve/search":
+                query = parse_qs(parsed.query)
+                rows = query_cves(
+                    CONFIG.paths,
+                    min_cvss=float((query.get("min_cvss") or ["0"])[0] or 0),
+                    q=(query.get("q") or [""])[0],
+                    limit=int((query.get("limit") or ["25"])[0] or 25),
+                )
+                self.send_json(rows)
+            elif parsed.path == "/api/mitre/techniques":
+                query = parse_qs(parsed.query)
+                rows = search_techniques(
+                    CONFIG.paths,
+                    (query.get("q") or [""])[0],
+                    limit=int((query.get("limit") or ["50"])[0] or 50),
+                )
+                self.send_json(rows)
+            elif parsed.path == "/api/cti":
+                self.send_json(list_cti_packs(CONFIG.paths))
             elif parsed.path == "/api/jobs":
                 with JOBS_LOCK:
                     self.send_json([job.snapshot() for job in JOBS.values()])
@@ -326,6 +487,100 @@ class GuiHandler(BaseHTTPRequestHandler):
                 self.send_json(build_model_job(data).snapshot(), HTTPStatus.ACCEPTED)
             elif parsed.path == "/api/jobs/scenario":
                 self.send_json(build_scenario_job(data).snapshot(), HTTPStatus.ACCEPTED)
+            elif parsed.path == "/api/cmdb":
+                self.send_json(upsert_cmdb_entry(CONFIG.paths, data), HTTPStatus.CREATED)
+            elif parsed.path == "/api/cmdb/seed":
+                path = seed_cmdb(CONFIG.paths, force=bool(data.get("force")))
+                self.send_json({"path": rel_path(path), "cmdb": load_cmdb_entries()})
+            elif parsed.path == "/api/chains":
+                self.send_json(upsert_chain(CONFIG.paths, data), HTTPStatus.CREATED)
+            elif parsed.path == "/api/chains/seed":
+                path = seed_attack_templates(CONFIG.paths, force=bool(data.get("force")))
+                self.send_json({"path": rel_path(path), "chains": load_attack_templates()})
+            elif parsed.path == "/api/workspace/seed":
+                seeded = seed_workspace(CONFIG.paths, force=bool(data.get("force")))
+                self.send_json(
+                    {
+                        "paths": seeded,
+                        "cmdb": load_cmdb_entries(),
+                        "chains": load_attack_templates(),
+                    }
+                )
+            elif parsed.path == "/api/intel/seed-nvd":
+                self.send_json(seed_demo_cves(CONFIG.paths))
+            elif parsed.path == "/api/intel/import":
+                catalog = str(data.get("catalog") or "").strip().lower()
+                source = str(data.get("path") or "").strip()
+                if not source:
+                    raise ValueError("path is required")
+                file_path = ensure_repo_file(source)
+                if catalog == "nvd":
+                    self.send_json(import_nvd_file(CONFIG.paths, file_path))
+                elif catalog == "mitre":
+                    self.send_json(import_mitre_file(CONFIG.paths, file_path))
+                elif catalog == "cti":
+                    self.send_json(ingest_cti_pack(CONFIG.paths, file_path))
+                else:
+                    raise ValueError("catalog must be nvd, mitre, or cti")
+            elif parsed.path == "/api/intel/update":
+                # Synchronous small ops or background job for online pulls
+                catalog = str(data.get("catalog") or "").strip().lower()
+                mode = str(data.get("mode") or "online").strip().lower()
+                if mode == "online" and catalog in {"nvd", "mitre"}:
+                    if data.get("background", True):
+                        self.send_json(build_intel_job(data).snapshot(), HTTPStatus.ACCEPTED)
+                    elif catalog == "nvd":
+                        self.send_json(
+                            update_nvd_online(
+                                CONFIG.paths,
+                                max_pages=int(data.get("max_pages") or 2),
+                            )
+                        )
+                    else:
+                        self.send_json(update_mitre_online(CONFIG.paths))
+                else:
+                    self.send_json(build_intel_job({**data, "mode": mode}).snapshot(), HTTPStatus.ACCEPTED)
+            elif parsed.path == "/api/cti":
+                self.send_json(upsert_cti_pack(CONFIG.paths, data), HTTPStatus.CREATED)
+            else:
+                self.send_error_json(HTTPStatus.NOT_FOUND, "Unknown endpoint")
+        except Exception as exc:
+            self.send_error_json(HTTPStatus.BAD_REQUEST, str(exc))
+
+    def do_PUT(self) -> None:
+        parsed = urlparse(self.path)
+        try:
+            data = read_body(self)
+            if parsed.path.startswith("/api/cmdb/"):
+                aa_id = unquote(parsed.path.rsplit("/", 1)[-1])
+                data = {**data, "aa_id": data.get("aa_id") or aa_id}
+                if str(data.get("aa_id")) != aa_id:
+                    raise ValueError("aa_id in body must match URL")
+                self.send_json(upsert_cmdb_entry(CONFIG.paths, data))
+            elif parsed.path.startswith("/api/chains/"):
+                chain_id = unquote(parsed.path.rsplit("/", 1)[-1])
+                data = {**data, "id": data.get("id") or chain_id}
+                self.send_json(upsert_chain(CONFIG.paths, data))
+            else:
+                self.send_error_json(HTTPStatus.NOT_FOUND, "Unknown endpoint")
+        except Exception as exc:
+            self.send_error_json(HTTPStatus.BAD_REQUEST, str(exc))
+
+    def do_DELETE(self) -> None:
+        parsed = urlparse(self.path)
+        try:
+            if parsed.path.startswith("/api/cmdb/"):
+                aa_id = unquote(parsed.path.rsplit("/", 1)[-1])
+                delete_cmdb_entry(CONFIG.paths, aa_id)
+                self.send_json({"deleted": aa_id})
+            elif parsed.path.startswith("/api/chains/"):
+                chain_id = unquote(parsed.path.rsplit("/", 1)[-1])
+                delete_chain(CONFIG.paths, chain_id)
+                self.send_json({"deleted": chain_id})
+            elif parsed.path.startswith("/api/cti/"):
+                pack_id = unquote(parsed.path.rsplit("/", 1)[-1])
+                delete_cti_pack(CONFIG.paths, pack_id)
+                self.send_json({"deleted": pack_id})
             else:
                 self.send_error_json(HTTPStatus.NOT_FOUND, "Unknown endpoint")
         except Exception as exc:

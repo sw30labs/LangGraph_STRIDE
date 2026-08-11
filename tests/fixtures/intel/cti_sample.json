@@ -1,0 +1,17 @@
+{
+  "id": "api-threats",
+  "title": "API Exposure Campaign Notes",
+  "actors": [
+    "UNC-TEST"
+  ],
+  "techniques": [
+    "T1190",
+    "T1110"
+  ],
+  "iocs": [
+    "evil.example",
+    "198.51.100.10"
+  ],
+  "notes": "Watch for credential stuffing against public APIs.",
+  "source": "fixture"
+}

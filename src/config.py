@@ -14,6 +14,9 @@ PACKAGE_ROOT = Path(__file__).resolve().parent
 PROJECT_ROOT = PACKAGE_ROOT.parent
 DEFAULT_VLLM_MODEL = "nvidia/Qwen3.6-27B-NVFP4"
 DEFAULT_CONTEXT_SIZE = 32_768
+# Muse Glimmer (and similar) controllable reasoning budgets.
+REASONING_STRENGTHS = ("low", "medium", "high", "xhigh")
+DEFAULT_REASONING_STRENGTH = "high"
 
 
 def load_dotenv_if_present() -> None:
@@ -46,6 +49,24 @@ def parse_backend(value: str | InferenceBackend) -> InferenceBackend:
     if normalized == "mlx":
         normalized = InferenceBackend.omlx.value
     return InferenceBackend(normalized)
+
+
+def parse_reasoning_strength(value: str | None = None) -> str:
+    """Parse Muse-style reasoning budgets: low, medium, high, xhigh."""
+    if value is None or not str(value).strip():
+        return DEFAULT_REASONING_STRENGTH
+    normalized = str(value).strip().lower()
+    if normalized not in REASONING_STRENGTHS:
+        allowed = ", ".join(REASONING_STRENGTHS)
+        raise ValueError(f"reasoning_strength must be one of: {allowed}")
+    return normalized
+
+
+def _bool_env(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def is_dgx_spark_host() -> bool:
@@ -145,6 +166,7 @@ class InferenceConfig(BaseModel):
     max_tokens: int = Field(default=DEFAULT_CONTEXT_SIZE, ge=1)
     timeout: float = Field(default=120.0, gt=0)
     disable_thinking: bool = True
+    reasoning_strength: str = DEFAULT_REASONING_STRENGTH
 
 
 def build_inference_config(
@@ -155,9 +177,18 @@ def build_inference_config(
     model: str | None = None,
     device: str | None = None,
     concurrency: int | None = None,
+    disable_thinking: bool | None = None,
+    reasoning_strength: str | None = None,
 ) -> InferenceConfig:
     """Resolve one complete provider persona with optional CLI overrides."""
     selected = parse_backend(backend) if backend else default_inference_backend()
+    if disable_thinking is None:
+        disable_thinking = not _bool_env("STRIDE_ENABLE_THINKING", False)
+    strength = parse_reasoning_strength(
+        reasoning_strength
+        if reasoning_strength is not None
+        else os.getenv("STRIDE_REASONING_STRENGTH")
+    )
     return InferenceConfig(
         backend=selected,
         device=device or default_device(),
@@ -168,8 +199,8 @@ def build_inference_config(
         context_size=resolve_context_size(selected),
         max_tokens=_int_env("STRIDE_MAX_TOKENS", DEFAULT_CONTEXT_SIZE),
         timeout=_float_env("LLM_TIMEOUT", 120.0),
-        disable_thinking=os.getenv("STRIDE_ENABLE_THINKING", "0").lower()
-        not in {"1", "true", "yes"},
+        disable_thinking=disable_thinking,
+        reasoning_strength=strength,
     )
 
 
@@ -178,6 +209,15 @@ class PathConfig(BaseModel):
     data_dir: Path = PACKAGE_ROOT / "data"
     prompts_dir: Path = PACKAGE_ROOT / "prompts"
     output_dir: Path = Field(default_factory=lambda: Path.cwd() / "output")
+
+    @property
+    def workspace_dir(self) -> Path:
+        """Mutable workspace root (CMDB, attack chains, intel catalogs)."""
+        return self.output_dir / "workspace"
+
+    @property
+    def intel_dir(self) -> Path:
+        return self.workspace_dir / "intel"
 
 
 def default_metrics_port() -> int | None:
