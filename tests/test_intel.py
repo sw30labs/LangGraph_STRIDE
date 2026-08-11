@@ -141,15 +141,29 @@ def test_cisa_advisories_offline_import_builds_packs(tmp_path):
 def test_cisa_advisories_online_uses_mock_transport(tmp_path):
     cfg = paths(tmp_path)
     xml_text = (FIXTURES / "cisa_advisories_sample.xml").read_text()
+    page_html = """
+    <html><head><script>var x = 1;</script></head><body>
+    <p>Full advisory body: DPRK-nexus Lazarus Group actors used T1059 and T1203
+    against defense contractors after a drive-by compromise.</p>
+    </body></html>
+    """
 
     def handler(request: httpx.Request) -> httpx.Response:
         assert "cisa.gov" in str(request.url)
-        return httpx.Response(200, text=xml_text)
+        if str(request.url).endswith("all.xml"):
+            return httpx.Response(200, text=xml_text)
+        return httpx.Response(200, text=page_html)
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
     result = update_cisa_advisories_online(cfg, client=client, limit=10)
     assert result["written"] == 3
     assert result["url"]
+    packs = {pack["id"]: pack for pack in list_cti_packs(cfg)}
+    gru = packs["cisa-adv-aa25-141a"]
+    # Body-only signals: Lazarus actor + explicit ATT&CK IDs from the page.
+    assert "dprk-nexus" in gru["actors"]
+    assert "T1203" in gru["techniques"]
+    assert "Advisory body (excerpt)" in gru["notes"]
 
 
 def test_advisories_fallback_to_newest_when_no_aa_items():
