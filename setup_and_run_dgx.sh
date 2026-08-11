@@ -152,7 +152,7 @@ cmd_setup() {
     "${VENV_DIR}/bin/python" -m pip install --upgrade pip
     "${VENV_DIR}/bin/python" -m pip install --index-url "${TORCH_INDEX_URL}" \
         "torch==${TORCH_VERSION}" "torchvision==${TORCHVISION_VERSION}"
-    "${VENV_DIR}/bin/python" -m pip install --editable "${REPO_ROOT}[dev]"
+    "${VENV_DIR}/bin/python" -m pip install --editable "${REPO_ROOT}[dev,graph]"
     "${VENV_DIR}/bin/python" -c \
         'import torch; assert torch.version.cuda == "13.0" and torch.cuda.is_available()'
     log "Installed ${VENV_DIR}."

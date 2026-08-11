@@ -62,9 +62,15 @@ python -m src.cli maintain neo4j-sync
 python3.11 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
+pip install -e ".[graph]"   # optional: Neo4j driver for Maintain → Sync Neo4j
 python -m src.cli info
 ./gate.sh
 ```
+
+The optional `graph` extra (neo4j driver) powers the Maintain panel's Neo4j
+projection. Start the dedicated store with
+`docker compose -f compose.neo4j.yaml up -d` (Bolt `127.0.0.1:7688`, Browser
+`http://127.0.0.1:7475`) — it is separate from any TwinOps Neo4j on 7687.
 
 ### Apple Silicon
 

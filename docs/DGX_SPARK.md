@@ -46,7 +46,7 @@ The Compose service is ARM64, digest-pinned, model-revision-pinned, loopback-onl
 | Command | Purpose |
 |---|---|
 | `doctor` | Validate host, Python, NVIDIA, Docker/Compose, token need, and exact-service reuse |
-| `setup` | Create/reuse `.venv-dgx`, install pinned CUDA wheels and `.[dev]`, validate CUDA |
+| `setup` | Create/reuse `.venv-dgx`, install pinned CUDA wheels and `.[dev,graph]`, validate CUDA |
 | `llm-up` | Reuse an exact service or start this repository's container |
 | `llm-wait` | Wait for exact model and context readiness |
 | `llm-down` | Stop only this repository's Compose service |

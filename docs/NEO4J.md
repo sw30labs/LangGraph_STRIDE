@@ -49,7 +49,7 @@ Source of truth remains `output/workspace/attack_templates.json`. Neo4j is a
 ## Sync
 
 ```bash
-pip install -e ".[dev]"   # includes neo4j driver
+pip install -e ".[graph]"   # neo4j driver (the dev extra alone is not enough)
 python -m src.cli maintain neo4j-status
 python -m src.cli maintain neo4j-sync
 python -m src.cli maintain graph              # analytics + sync

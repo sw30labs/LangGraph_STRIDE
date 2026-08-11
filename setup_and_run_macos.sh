@@ -29,7 +29,7 @@ if ! "${CONDA_BIN}" run --name "${ENV_NAME}" python -c \
     'import sys; raise SystemExit(sys.version_info[:2] != (3, 11))'; then
     "${CONDA_BIN}" install --yes --name "${ENV_NAME}" --channel conda-forge python=3.11 pip
 fi
-"${CONDA_BIN}" run --name "${ENV_NAME}" python -m pip install --editable "${REPO_ROOT}[dev]"
+"${CONDA_BIN}" run --name "${ENV_NAME}" python -m pip install --editable "${REPO_ROOT}[dev,graph]"
 [[ $# -gt 0 ]] || set -- serve
 export STRIDE_BACKEND="${STRIDE_BACKEND:-omlx}" STRIDE_DEVICE="${STRIDE_DEVICE:-mps}" \
     STRIDE_CONCURRENCY="${STRIDE_CONCURRENCY:-4}"
