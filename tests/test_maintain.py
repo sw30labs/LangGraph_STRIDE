@@ -203,8 +203,88 @@ def test_neo4j_status_does_not_raise_when_down():
     from src.config import Neo4jConfig
     from src.maintain.neo4j_graph import neo4j_status
 
-    status = neo4j_status(
-        Neo4jConfig(uri="bolt://127.0.0.1:1", password="nope", enabled=True)
-    )
+    status = neo4j_status(Neo4jConfig(uri="bolt://127.0.0.1:1", password="nope", enabled=True))
     assert status["ready"] is False
     assert status["detail"]
+
+
+FIXTURES = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "intel"
+
+
+def test_intel_payload_merges_nvd_and_kev(tmp_path):
+    from src.intel.cti import kev_cache_path
+    from src.intel.nvd import import_nvd_file
+    from src.maintain.neo4j_intel import build_intel_payload, cve_rows
+
+    paths = _paths(tmp_path)
+    import_nvd_file(paths, FIXTURES / "nvd_sample.json")
+    cache = kev_cache_path(paths)
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    cache.write_text((FIXTURES / "cisa_kev_sample.json").read_text(), encoding="utf-8")
+
+    rows = {row["cve_id"]: row for row in cve_rows(paths)}
+    assert "CVE-2024-0001" in rows  # NVD-only
+    assert "CVE-2024-2222" in rows  # KEV-only
+    kev = rows["CVE-2024-2222"]
+    assert kev["in_kev"] is True
+    assert kev["kev_ransomware"] == "Known"
+    assert "CWE-502" in kev["cwes"]
+    assert kev["techniques"]  # heuristic mapping applied
+    nvd = rows["CVE-2024-0001"]
+    assert nvd["in_kev"] is False
+    assert nvd["cvss"] is not None
+
+    payload = build_intel_payload(paths)
+    assert payload["cwe_pairs"]
+    assert payload["kev_tech_edges"]
+    for edge in payload["kev_tech_edges"]:
+        assert edge["tid"].startswith("T")
+        assert edge["is_sub"] == ("." in edge["tid"])
+
+
+def test_intel_payload_actor_and_advisory_rows(tmp_path):
+    from src.intel.cti import upsert_cti_pack
+    from src.maintain.neo4j_intel import actor_rows, advisory_rows
+
+    paths = _paths(tmp_path)
+    upsert_cti_pack(
+        paths,
+        {
+            "id": "mitre-group-g9999",
+            "title": "MITRE group: Test Bear (G9999)",
+            "actors": ["Test Bear", "TB Alias"],
+            "techniques": ["T1190", "not-a-tid", "T1059.001"],
+            "notes": "fictional",
+            "source": "mitre-attack-group",
+        },
+    )
+    upsert_cti_pack(
+        paths,
+        {
+            "id": "cisa-adv-test",
+            "title": "CISA advisory: Test",
+            "actors": ["russia-nexus"],
+            "techniques": ["T1059"],
+            "source": "cisa-advisory",
+        },
+    )
+
+    actors = actor_rows(paths)
+    assert len(actors) == 1
+    assert actors[0]["name"] == "Test Bear"
+    assert actors[0]["aliases"] == ["TB Alias"]
+    assert actors[0]["techniques"] == ["T1190", "T1059.001"]  # invalid id dropped
+
+    advisories = advisory_rows(paths)
+    assert advisories[0]["nexus"] == ["russia-nexus"]
+    assert advisories[0]["techniques"] == ["T1059"]
+
+
+def test_canned_queries_cover_intel_layers():
+    from src.maintain.neo4j_graph import CANNED_QUERIES
+
+    assert "kev_gaps" in CANNED_QUERIES
+    assert "EXPLOITS_TECHNIQUE" in CANNED_QUERIES["kev_gaps"]["cypher"]
+    assert "actor_coverage" in CANNED_QUERIES
+    # intel-only techniques (frequency 0) must not flood chain dark matter
+    assert "frequency >= 1" in CANNED_QUERIES["dark_matter"]["cypher"]

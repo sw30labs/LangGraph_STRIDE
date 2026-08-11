@@ -17,6 +17,13 @@ Schema
   (Chain)-[:SIMILAR_TO {jaccard, verdict}]->(Chain)               # key-ordered
   (Chain)-[:TAGGED]->(Tag)
 
+Intel layers (see neo4j_intel.py):
+  (:CVE)-[:HAS_CWE]->(:CWE)
+  (:CVE)-[:EXPLOITS_TECHNIQUE {confidence}]->(Technique)
+  (:Actor)-[:USES {confidence}]->(Technique)
+  (:Advisory)-[:MENTIONS {confidence}]->(Technique)
+  (:Advisory)-[:ATTRIBUTES_ACTIVITY_TO]->(:Nexus)
+
 Analytics still rebuild from the JSON chain library (source of truth). Neo4j
 is the queryable projection + Browser playground.
 """
@@ -43,6 +50,11 @@ CONSTRAINTS = (
     "CREATE CONSTRAINT tactic_name IF NOT EXISTS FOR (t:Tactic) REQUIRE t.name IS UNIQUE",
     "CREATE CONSTRAINT tag_name IF NOT EXISTS FOR (t:Tag) REQUIRE t.name IS UNIQUE",
     "CREATE CONSTRAINT library_meta IF NOT EXISTS FOR (m:LibraryMeta) REQUIRE m.id IS UNIQUE",
+    "CREATE CONSTRAINT cve_id IF NOT EXISTS FOR (c:CVE) REQUIRE c.cve_id IS UNIQUE",
+    "CREATE CONSTRAINT cwe_name IF NOT EXISTS FOR (w:CWE) REQUIRE w.name IS UNIQUE",
+    "CREATE CONSTRAINT actor_id IF NOT EXISTS FOR (a:Actor) REQUIRE a.id IS UNIQUE",
+    "CREATE CONSTRAINT advisory_id IF NOT EXISTS FOR (d:Advisory) REQUIRE d.id IS UNIQUE",
+    "CREATE CONSTRAINT nexus_name IF NOT EXISTS FOR (n:Nexus) REQUIRE n.name IS UNIQUE",
 )
 
 INDEXES = (
@@ -90,7 +102,12 @@ def neo4j_status(config: Neo4jConfig | None = None) -> dict[str, Any]:
                 OPTIONAL MATCH (t:Technique) WITH chains, count(t) AS techniques
                 OPTIONAL MATCH ()-[u:USES]->() WITH chains, techniques, count(u) AS uses
                 OPTIONAL MATCH ()-[co:CO_OCCURS]->()
-                RETURN chains, techniques, uses, count(co) AS co_occurs
+                WITH chains, techniques, uses, count(co) AS co_occurs
+                OPTIONAL MATCH (v:CVE) WITH chains, techniques, uses, co_occurs, count(v) AS cves
+                OPTIONAL MATCH (a:Actor)
+                WITH chains, techniques, uses, co_occurs, cves, count(a) AS actors
+                OPTIONAL MATCH (d:Advisory)
+                RETURN chains, techniques, uses, co_occurs, cves, actors, count(d) AS advisories
                 """
             ).single()
             meta = session.run(
@@ -105,6 +122,9 @@ def neo4j_status(config: Neo4jConfig | None = None) -> dict[str, Any]:
                 "techniques": int(counts["techniques"] or 0),
                 "uses": int(counts["uses"] or 0),
                 "co_occurs": int(counts["co_occurs"] or 0),
+                "cves": int(counts["cves"] or 0),
+                "actors": int(counts["actors"] or 0),
+                "advisories": int(counts["advisories"] or 0),
             }
         if meta:
             base["synced_at"] = meta.get("synced_at")
@@ -166,10 +186,7 @@ def _cooccur_edges(
             for b in keys[i + 1 :]:
                 pair = (a, b)
                 pair_chains.setdefault(pair, []).append(chain["id"])
-    return [
-        (a, b, len(cids), cids)
-        for (a, b), cids in pair_chains.items()
-    ]
+    return [(a, b, len(cids), cids) for (a, b), cids in pair_chains.items()]
 
 
 def sync_library_to_neo4j(
@@ -343,6 +360,12 @@ def sync_library_to_neo4j(
                     shared_count=int(pair.get("shared_count") or 0),
                 )
 
+            # Intel projection (CVEs, CWEs, actors, advisories) — after the
+            # chain layers so intel edges MERGE onto chain technique nodes.
+            from src.maintain.neo4j_intel import sync_intel_to_neo4j
+
+            intel_counts = sync_intel_to_neo4j(session, path_cfg)
+
             session.run(
                 """
                 CREATE (:LibraryMeta {
@@ -351,7 +374,10 @@ def sync_library_to_neo4j(
                     chain_count: $chain_count,
                     technique_count: $technique_count,
                     cooccur_count: $cooccur_count,
-                    similar_count: $similar_count
+                    similar_count: $similar_count,
+                    cve_count: $cve_count,
+                    actor_count: $actor_count,
+                    advisory_count: $advisory_count
                 })
                 """,
                 synced_at=synced_at,
@@ -359,6 +385,9 @@ def sync_library_to_neo4j(
                 technique_count=len(techniques),
                 cooccur_count=len(cooccurs),
                 similar_count=len(similar),
+                cve_count=intel_counts["cves"],
+                actor_count=intel_counts["actors"],
+                advisory_count=intel_counts["advisories"],
             )
     finally:
         driver.close()
@@ -374,6 +403,7 @@ def sync_library_to_neo4j(
             "techniques": len(techniques),
             "co_occurs": len(cooccurs),
             "similar": len(similar),
+            **intel_counts,
         },
         "detail": "ok",
     }
@@ -395,7 +425,9 @@ def run_cypher(
             for i, record in enumerate(result):
                 if i >= limit:
                     break
-                rows.append({key: _neo_value(record[key]) for key in record})
+                # neo4j.Record iteration yields values, not keys — .keys()
+                # is required here (not a plain dict).
+                rows.append({key: _neo_value(record[key]) for key in record.keys()})  # noqa: SIM118
             return rows
     finally:
         driver.close()
@@ -458,13 +490,43 @@ CANNED_QUERIES: dict[str, dict[str, str]] = {
     "dark_matter": {
         "title": "Dark-matter pair candidates",
         "cypher": (
-            # techniques that never CO_OCCURS but both appear ≥1
+            # techniques that never CO_OCCURS but both appear ≥1 in chains
             "MATCH (a:Technique), (b:Technique) "
-            "WHERE a.key < b.key AND a.frequency <= 3 AND b.frequency <= 3 "
+            "WHERE a.key < b.key AND a.frequency >= 1 AND b.frequency >= 1 "
+            "AND a.frequency <= 3 AND b.frequency <= 3 "
             "AND NOT (a)-[:CO_OCCURS]-(b) "
             "RETURN a.key AS a, a.name AS name_a, b.key AS b, b.name AS name_b, "
             "a.frequency AS freq_a, b.frequency AS freq_b "
             "ORDER BY a.frequency + b.frequency ASC LIMIT 30"
+        ),
+    },
+    "kev_gaps": {
+        "title": "Actively-exploited technique gaps",
+        "cypher": (
+            # techniques reached from KEV CVEs that no chain exercises,
+            # counting a chain's sub-technique as covering its parent
+            "MATCH (c:CVE)-[:EXPLOITS_TECHNIQUE]->(t:Technique) "
+            "WHERE NOT EXISTS { (t)<-[:USES]-(:Chain) } "
+            "AND NOT EXISTS { (sub:Technique)<-[:USES]-(:Chain) "
+            "WHERE sub.key STARTS WITH t.key + '.' } "
+            "RETURN t.key AS key, t.name AS name, count(DISTINCT c) AS kev_cves "
+            "ORDER BY kev_cves DESC, key LIMIT 25"
+        ),
+    },
+    "actor_coverage": {
+        "title": "Actor tradecraft coverage",
+        "cypher": (
+            # share of each actor's techniques that the chain library simulates,
+            # counting a chain's sub-technique as covering its parent
+            "MATCH (a:Actor)-[:USES]->(t:Technique) "
+            "WITH a, t, EXISTS { (t)<-[:USES]-(:Chain) } "
+            "OR EXISTS { (sub:Technique)<-[:USES]-(:Chain) "
+            "WHERE sub.key STARTS WITH t.key + '.' } AS covered_flag "
+            "WITH a, count(DISTINCT t) AS total, "
+            "count(DISTINCT CASE WHEN covered_flag THEN t END) AS covered "
+            "RETURN a.name AS actor, covered, total, "
+            "round(100.0 * covered / total) AS pct "
+            "ORDER BY pct DESC, total DESC LIMIT 25"
         ),
     },
     "tactic_coverage": {
@@ -605,10 +667,7 @@ def visualization_payload(paths, *, neo: Neo4jConfig | None = None) -> dict[str,
         for i, a in enumerate(keys):
             for b in keys[i + 1 :]:
                 pair_w[(a, b)] = pair_w.get((a, b), 0) + 1
-    tech_edges = [
-        {"source": a, "target": b, "weight": w}
-        for (a, b), w in pair_w.items()
-    ]
+    tech_edges = [{"source": a, "target": b, "weight": w} for (a, b), w in pair_w.items()]
     laid = force_layout(tech_nodes, tech_edges, width=720, height=460)
 
     # Bipartite positions (chains left, techniques right)

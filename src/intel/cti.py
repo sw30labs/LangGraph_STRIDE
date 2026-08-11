@@ -215,7 +215,7 @@ def format_packs_for_prompt(packs: list[dict[str, Any]]) -> str:
     return "\n\n".join(blocks)
 
 
-def _cwe_list(row: dict[str, Any]) -> list[str]:
+def cwe_list(row: dict[str, Any]) -> list[str]:
     raw = row.get("cwes") or row.get("cwe") or []
     if isinstance(raw, str):
         raw = [raw]
@@ -233,7 +233,7 @@ def _cwe_list(row: dict[str, Any]) -> list[str]:
 def techniques_from_kev_row(row: dict[str, Any]) -> list[str]:
     """Map a KEV vulnerability row onto ATT&CK technique IDs for pack matching."""
     found: set[str] = set()
-    for cwe in _cwe_list(row):
+    for cwe in cwe_list(row):
         for tid in CWE_TO_TECHNIQUES.get(cwe, []):
             found.add(tid)
     blob = " ".join(
@@ -273,7 +273,7 @@ def kev_row_to_pack(row: dict[str, Any]) -> dict[str, Any]:
         f"Known ransomware campaign use: {ransomware}",
         f"Description: {row.get('shortDescription') or ''}",
         f"Required action: {row.get('requiredAction') or ''}",
-        f"CWEs: {', '.join(_cwe_list(row)) or 'n/a'}",
+        f"CWEs: {', '.join(cwe_list(row)) or 'n/a'}",
         f"Notes/refs: {row.get('notes') or ''}",
         "Source: CISA Known Exploited Vulnerabilities Catalog",
     ]

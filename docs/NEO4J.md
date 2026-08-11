@@ -35,13 +35,37 @@ Also set the same value in `.env` as `STRIDE_NEO4J_PASSWORD` so the app can conn
 (:Tactic {name, ord})
 (:Tag {name})
 (:LibraryMeta {id:'stride', synced_at, …})
+(:CVE {cve_id, description, cvss, vector, published, platforms,
+       in_kev, kev_date_added, kev_due_date, kev_ransomware, vendor, product})
+(:CWE {name})
+(:Actor {id, name, aliases, notes})              # MITRE ATT&CK groups
+(:Advisory {id, title, nexus, notes})            # CISA joint advisories
+(:Nexus {name})                                  # attribution labels (russia-nexus, …)
 
 (Chain)-[:USES {step, tactic, raw}]->(Technique)
 (Technique)-[:IN_TACTIC]->(Tactic)
 (Technique)-[:CO_OCCURS {weight, shared_chains}]->(Technique)
 (Chain)-[:SIMILAR_TO {jaccard, verdict, shared_count}]->(Chain)
 (Chain)-[:TAGGED]->(Tag)
+(CVE)-[:HAS_CWE]->(CWE)
+(CVE)-[:EXPLOITS_TECHNIQUE {confidence:'heuristic-kev'}]->(Technique)
+(Actor)-[:USES {confidence:'mitre-attack'}]->(Technique)
+(Advisory)-[:MENTIONS {confidence:'advisory-mined'}]->(Technique)
+(Advisory)-[:ATTRIBUTES_ACTIVITY_TO]->(Nexus)
 ```
+
+Intel layers come from `src/maintain/neo4j_intel.py`: the NVD sqlite store and
+cached KEV catalog merge onto shared `CVE` nodes, MITRE group packs become
+`Actor` nodes with real "uses" edges, advisory packs become `Advisory` nodes.
+Edge `confidence` separates gold data (MITRE uses) from mined hints — filter on
+it in analytics. Technique nodes are shared: intel edges MERGE onto the same
+`Technique {key}` nodes the chain library uses (intel-only techniques get
+`frequency = 0`).
+
+Canned queries beyond the chain analytics: `kev_gaps` (actively-exploited
+techniques no chain simulates) and `actor_coverage` (share of each actor's
+tradecraft the library covers). Both count a chain's sub-technique as covering
+its parent.
 
 Source of truth remains `output/workspace/attack_templates.json`. Neo4j is a
 **full-rebuild projection** on each sync (detach-delete + recreate).
