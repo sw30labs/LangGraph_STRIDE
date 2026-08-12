@@ -249,3 +249,68 @@ def test_scenario_cve_uses_nvd_store_and_cti_packs(tmp_path):
     assert "nvd-store" in client.prompts[0]
     # CTI prompt is second call
     assert "API Exposure Campaign Notes" in client.prompts[1]
+
+
+def test_scenario_cti_uses_graph_briefing_when_available(tmp_path, monkeypatch):
+    import src.maintain.neo4j_graph as ng
+
+    def fake_run_cypher(config, query, params=None, *, limit=100):
+        return [
+            {
+                "tid": "T1190",
+                "actors": ["Graph Bear"],
+                "advisories": ["AA99-001A"],
+                "kev_cves": ["CVE-2025-9999"],
+            }
+        ]
+
+    monkeypatch.setattr(ng, "run_cypher", fake_run_cypher)
+    cfg = paths(tmp_path)
+    import_nvd_file(cfg, FIXTURES / "nvd_sample.json")
+    model = tmp_path / "model.json"
+    model.write_text(
+        json.dumps(
+            {
+                "system_metadata": {"aa_id": "AA123456", "Application Name": "Payments"},
+                "Spoofing": [],
+                "dread_assessment": [],
+                "_meta": {"artifact_id": "tm_AA123456_1", "aa_id": "AA123456"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    client = FakeClient()
+    app = AppConfig(inference=build_inference_config("omlx"), paths=cfg)
+    ScenarioWorkflow(app, client=client).run(model, "API Exposure Attack [New]", min_cvss=9.0)
+    # CTI prompt carries the graph briefing alongside file packs
+    assert "Graph Bear" in client.prompts[1]
+    assert "CVE-2025-9999" in client.prompts[1]
+
+
+def test_scenario_cti_survives_graph_outage(tmp_path, monkeypatch):
+    import src.maintain.neo4j_graph as ng
+
+    def boom(config, query, params=None, *, limit=100):
+        raise ConnectionError("bolt unreachable")
+
+    monkeypatch.setattr(ng, "run_cypher", boom)
+    cfg = paths(tmp_path)
+    import_nvd_file(cfg, FIXTURES / "nvd_sample.json")
+    model = tmp_path / "model.json"
+    model.write_text(
+        json.dumps(
+            {
+                "system_metadata": {"aa_id": "AA123456", "Application Name": "Payments"},
+                "Spoofing": [],
+                "dread_assessment": [],
+                "_meta": {"artifact_id": "tm_AA123456_1", "aa_id": "AA123456"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    client = FakeClient()
+    app = AppConfig(inference=build_inference_config("omlx"), paths=cfg)
+    path = ScenarioWorkflow(app, client=client).run(
+        model, "API Exposure Attack [New]", min_cvss=9.0
+    )
+    assert path.is_file()  # file-pack baseline still produces a report

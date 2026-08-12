@@ -21,6 +21,8 @@ from pathlib import Path
 from typing import Any
 
 from src.config import PathConfig
+from src.intel.cti import DESC_HINTS
+from src.maintain.neo4j_intel import technique_names
 from src.workspace import load_chains, load_cmdb
 
 STRIDE_CATEGORIES = (
@@ -35,6 +37,21 @@ STRIDE_CATEGORIES = (
 FEEDBACK_STAGE = re.compile(
     r"^(?P<stage>stride|dread|final)_feedback_(?P<aa>[A-Za-z0-9]+)_(?P<ts>\d+)\.json$"
 )
+
+EXPLICIT_TECHNIQUE = re.compile(r"\bT\d{4}(?:\.\d{3})?\b")
+
+CONFIDENCE_THREAT = "heuristic-threat"
+
+
+def threat_techniques(name: str, description: str, impact: str) -> list[str]:
+    """Map a free-text threat onto ATT&CK IDs: explicit citations first, then
+    the shared keyword hints. Heuristic — edges carry confidence accordingly."""
+    blob = f"{name} {description} {impact}"
+    found = {tid.upper() for tid in EXPLICIT_TECHNIQUE.findall(blob)}
+    for pattern, tids in DESC_HINTS:
+        if pattern.search(blob):
+            found.update(tids)
+    return sorted(found)[:8]
 
 
 def _slug(value: str) -> str:
@@ -125,6 +142,11 @@ def threat_model_rows(paths: PathConfig) -> list[dict[str, Any]]:
                         "description": str(entry.get("description") or ""),
                         "impact": str(entry.get("impact") or ""),
                         "mitigation": str(entry.get("mitigation") or ""),
+                        "techniques": threat_techniques(
+                            str(entry["threat_name"]),
+                            str(entry.get("description") or ""),
+                            str(entry.get("impact") or ""),
+                        ),
                     }
                 )
         dread = []
@@ -269,6 +291,34 @@ def sync_workspace_to_neo4j(session, paths: PathConfig) -> dict[str, int]:
         """,
         edges=threat_edges,
     )
+    names = technique_names(paths)
+    threat_tech_edges = [
+        {
+            "threat": threat["key"],
+            "tid": tid,
+            "name": names.get(tid, ""),
+            "is_sub": "." in tid,
+        }
+        for threat in threat_edges
+        for tid in threat["techniques"]
+    ]
+    session.run(
+        """
+        UNWIND $edges AS edge
+        MERGE (t:Technique {key: edge.tid})
+        ON CREATE SET
+            t.technique_id = edge.tid,
+            t.name = edge.name,
+            t.frequency = 0,
+            t.is_subtechnique = edge.is_sub
+        WITH edge, t
+        MATCH (th:Threat {key: edge.threat})
+        MERGE (th)-[r:MAPS_TO]->(t)
+        ON CREATE SET r.confidence = $confidence
+        """,
+        edges=threat_tech_edges,
+        confidence=CONFIDENCE_THREAT,
+    )
     session.run(
         """
         UNWIND $rows AS row
@@ -319,6 +369,7 @@ def sync_workspace_to_neo4j(session, paths: PathConfig) -> dict[str, int]:
         "applications": len(apps),
         "threat_models": len(models),
         "threats": len(threat_edges),
+        "threat_tech_edges": len(threat_tech_edges),
         "scenarios": len(scenarios),
         "scenario_lineage": sum(1 for row in scenarios if row["source_threat_model_path"]),
         "scenario_chains": sum(1 for row in scenarios if row["chain_id"]),

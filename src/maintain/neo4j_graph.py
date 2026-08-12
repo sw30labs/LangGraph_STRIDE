@@ -589,6 +589,19 @@ CANNED_QUERIES: dict[str, dict[str, str]] = {
             "ORDER BY shared_techniques DESC, actor LIMIT 25"
         ),
     },
+    "threat_actor_paths": {
+        "title": "Threat → actor paths",
+        "cypher": (
+            # threats joined to named actors via shared techniques
+            # (threat mapping is heuristic; actor edges are MITRE gold)
+            "MATCH (app:Application)<-[:FOR_APP]-(m:ThreatModel)-[:RAISED]->(th:Threat) "
+            "MATCH (th)-[:MAPS_TO]->(t:Technique)<-[u:USES]-(a:Actor) "
+            "WHERE u.confidence = 'mitre-attack' "
+            "RETURN app.aa_id AS app, th.name AS threat, a.name AS actor, "
+            "count(DISTINCT t) AS shared_techniques "
+            "ORDER BY shared_techniques DESC, threat LIMIT 25"
+        ),
+    },
 }
 
 
@@ -602,6 +615,81 @@ def canned_query(
     meta = CANNED_QUERIES[name]
     rows = run_cypher(config, meta["cypher"], params)
     return {"id": name, "title": meta["title"], "rows": rows}
+
+
+def cti_briefing(
+    config: Neo4jConfig,
+    technique_ids: list[str],
+) -> dict[str, Any]:
+    """Graph intel around attack-chain techniques for scenario CTI prompts.
+
+    One traversal collects the actors (MITRE gold edges), advisories, and
+    actively-exploited CVEs touching each technique, ranked by how many of the
+    chain's techniques they cover — the multi-hop context the file-pack
+    keyword match cannot see.
+    """
+    tids = sorted({tid.strip().upper() for tid in technique_ids if tid and tid.strip()})
+    if not tids:
+        return {"actors": [], "advisories": [], "kev_cves": []}
+    rows = run_cypher(
+        config,
+        """
+        UNWIND $tids AS tid
+        MATCH (t:Technique {key: tid})
+        OPTIONAL MATCH (a:Actor)-[:USES {confidence: 'mitre-attack'}]->(t)
+        OPTIONAL MATCH (d:Advisory)-[:MENTIONS]->(t)
+        OPTIONAL MATCH (c:CVE)-[:EXPLOITS_TECHNIQUE]->(t) WHERE c.in_kev
+        RETURN tid,
+               collect(DISTINCT a.name) AS actors,
+               collect(DISTINCT d.title) AS advisories,
+               collect(DISTINCT c.cve_id) AS kev_cves
+        """,
+        {"tids": tids},
+        limit=len(tids),
+    )
+    actors: dict[str, set[str]] = {}
+    advisories: dict[str, set[str]] = {}
+    cves: dict[str, set[str]] = {}
+    for row in rows:
+        tid = str(row.get("tid") or "")
+        for name in row.get("actors") or []:
+            actors.setdefault(str(name), set()).add(tid)
+        for title in row.get("advisories") or []:
+            advisories.setdefault(str(title), set()).add(tid)
+        for cve in row.get("kev_cves") or []:
+            cves.setdefault(str(cve), set()).add(tid)
+
+    def ranked(bucket: dict[str, set[str]]) -> list[dict[str, Any]]:
+        return [
+            {"name": name, "techniques": sorted(found)}
+            for name, found in sorted(bucket.items(), key=lambda item: (-len(item[1]), item[0]))
+        ]
+
+    return {
+        "actors": ranked(actors),
+        "advisories": ranked(advisories),
+        "kev_cves": ranked(cves),
+    }
+
+
+def format_cti_briefing(briefing: dict[str, Any]) -> str:
+    """Render cti_briefing rows as prompt-ready context (empty when no hits)."""
+    lines: list[str] = []
+    actors = briefing.get("actors") or []
+    if actors:
+        lines.append("Threat actors using these techniques (MITRE ATT&CK):")
+        lines.extend(
+            f"- {row['name']} — shares {', '.join(row['techniques'])}" for row in actors[:8]
+        )
+    advisories = briefing.get("advisories") or []
+    if advisories:
+        lines.append("CISA joint advisories citing these techniques:")
+        lines.extend(f"- {row['name']}" for row in advisories[:5])
+    cves = briefing.get("kev_cves") or []
+    if cves:
+        lines.append("Actively exploited CVEs (CISA KEV) mapped to these techniques:")
+        lines.extend(f"- {row['name']} — via {', '.join(row['techniques'])}" for row in cves[:10])
+    return "\n".join(lines)
 
 
 def force_layout(

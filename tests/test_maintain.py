@@ -357,6 +357,37 @@ def _workspace_fixture(paths: PathConfig) -> None:
     )
 
 
+def test_cti_briefing_aggregates_and_formats(monkeypatch):
+    import src.maintain.neo4j_graph as ng
+    from src.config import Neo4jConfig
+
+    def fake_run_cypher(config, query, params=None, *, limit=100):
+        assert params["tids"] == ["T1059", "T1190"]
+        return [
+            {
+                "tid": "T1190",
+                "actors": ["APT28", "Lazarus"],
+                "advisories": ["AA25-141A"],
+                "kev_cves": ["CVE-2024-1"],
+            },
+            {
+                "tid": "T1059",
+                "actors": ["APT28"],
+                "advisories": [],
+                "kev_cves": ["CVE-2024-1", "CVE-2024-2"],
+            },
+        ]
+
+    monkeypatch.setattr(ng, "run_cypher", fake_run_cypher)
+    briefing = ng.cti_briefing(Neo4jConfig(), ["T1190", "t1059", ""])
+    # ranked by technique coverage; deduped case-insensitively
+    assert briefing["actors"][0] == {"name": "APT28", "techniques": ["T1059", "T1190"]}
+    assert briefing["kev_cves"][0]["name"] == "CVE-2024-1"
+    text = ng.format_cti_briefing(briefing)
+    assert "APT28" in text and "CVE-2024-2" in text and "AA25-141A" in text
+    assert ng.format_cti_briefing({"actors": [], "advisories": [], "kev_cves": []}) == ""
+
+
 def test_workspace_projection_rows(tmp_path):
     from src.maintain.neo4j_workspace import (
         application_rows,

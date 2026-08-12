@@ -14,9 +14,9 @@ from langgraph.graph import END, StateGraph
 
 from src.config import AppConfig
 from src.inference_client import OpenAICompatibleClient, client_from_config
-from src.threat_model import STRIDE_CATEGORIES
 from src.intel.cti import format_packs_for_prompt, matching_cti_packs
 from src.intel.nvd import load_cves_for_scenario
+from src.threat_model import STRIDE_CATEGORIES
 from src.workspace import get_chain_techniques, now_iso
 
 
@@ -121,9 +121,7 @@ class ScenarioWorkflow:
             "CID handling": metadata.get("CID handling", ""),
         }
         try:
-            selected_techniques = get_chain_techniques(
-                self.config.paths, state["attack_template"]
-            )
+            selected_techniques = get_chain_techniques(self.config.paths, state["attack_template"])
         except ValueError:
             attack_templates = json.loads(
                 (self.config.paths.data_dir / "predefined_attack_templates.json").read_text(
@@ -166,14 +164,25 @@ class ScenarioWorkflow:
             cveinfo=_escape_format(json.dumps(vulnerabilities)),
         )
         prompt += (
-            f"\n\nCVE source: {cve_source}\n"
-            "Generate the CVE report following the specified format."
+            f"\n\nCVE source: {cve_source}\nGenerate the CVE report following the specified format."
         )
         return {"cve_report": self._ask(prompt), "cve_source": cve_source}
 
     @staticmethod
     def _qa_cve(_: ScenarioState) -> ScenarioState:
         return {"cve_feedback": {"approved": True, "feedback": "Approved"}, "cve_approved": True}
+
+    def _graph_briefing(self, technique_ids: list[str]) -> str:
+        """Optional Neo4j intel context; file packs remain the baseline."""
+        neo = getattr(self.config, "neo4j", None)
+        if not (neo and neo.enabled and technique_ids):
+            return ""
+        try:
+            from src.maintain.neo4j_graph import cti_briefing, format_cti_briefing
+
+            return format_cti_briefing(cti_briefing(neo, technique_ids))
+        except Exception:
+            return ""
 
     def _generate_cti(self, state: ScenarioState) -> ScenarioState:
         _stage("generate_cti")
@@ -194,12 +203,17 @@ class ScenarioWorkflow:
         )
         prompt += f"\n\nGenerate the CTI report using this CVE report:\n{state['cve_report']}"
         if pack_block:
-            prompt += f"\n\nLocal CTI packs (use as context, do not invent citations):\n{pack_block}"
-        if technique_ids:
             prompt += (
-                "\n\nAttack-chain MITRE techniques: "
-                + ", ".join(technique_ids)
+                f"\n\nLocal CTI packs (use as context, do not invent citations):\n{pack_block}"
             )
+        briefing = self._graph_briefing(technique_ids)
+        if briefing:
+            prompt += (
+                "\n\nGraph intel briefing (Neo4j projection: actors, advisories, "
+                "and actively-exploited CVEs linked to these techniques):\n" + briefing
+            )
+        if technique_ids:
+            prompt += "\n\nAttack-chain MITRE techniques: " + ", ".join(technique_ids)
         return {"cti_report": self._ask(prompt)}
 
     @staticmethod
@@ -259,7 +273,9 @@ class ScenarioWorkflow:
         info = state["cmdb_info"]
         source_path = state.get("source_threat_model_path") or state.get("json_file") or ""
         try:
-            source_rel = str(Path(source_path).resolve().relative_to(self.config.paths.project_root.resolve()))
+            source_rel = str(
+                Path(source_path).resolve().relative_to(self.config.paths.project_root.resolve())
+            )
         except Exception:
             source_rel = str(source_path)
         report = {

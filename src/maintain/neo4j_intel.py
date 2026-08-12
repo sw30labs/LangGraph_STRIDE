@@ -28,7 +28,7 @@ CONFIDENCE_MITRE = "mitre-attack"
 CONFIDENCE_ADVISORY = "advisory-mined"
 
 
-def _technique_names(paths: PathConfig) -> dict[str, str]:
+def technique_names(paths: PathConfig) -> dict[str, str]:
     return {
         str(row.get("technique_id")): str(row.get("name") or "")
         for row in load_techniques(paths)
@@ -161,7 +161,7 @@ def advisory_rows(paths: PathConfig) -> list[dict[str, Any]]:
 
 def build_intel_payload(paths: PathConfig) -> dict[str, Any]:
     """All intel rows plus flattened edge pairs, ready for UNWIND writes."""
-    names = _technique_names(paths)
+    names = technique_names(paths)
     cves = cve_rows(paths)
     actors = actor_rows(paths)
     advisories = advisory_rows(paths)

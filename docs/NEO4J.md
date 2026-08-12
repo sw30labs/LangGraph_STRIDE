@@ -58,6 +58,7 @@ Also set the same value in `.env` as `STRIDE_NEO4J_PASSWORD` so the app can conn
 (Advisory)-[:ATTRIBUTES_ACTIVITY_TO]->(Nexus)
 (ThreatModel)-[:FOR_APP]->(Application)
 (ThreatModel)-[:RAISED {category, description, impact, mitigation}]->(Threat)
+(Threat)-[:MAPS_TO {confidence:'heuristic-threat'}]->(Technique)
 (Scenario)-[:FOR_APP]->(Application)
 (Scenario)-[:DERIVED_FROM]->(ThreatModel)
 (Scenario)-[:SELECTED_CHAIN]->(Chain)
@@ -81,7 +82,14 @@ applications, threat models (with STRIDE threat nodes and QA scores from
 `output/feedback/`), and scenarios with `DERIVED_FROM`/`SELECTED_CHAIN`
 lineage. The flagship canned query `actor_exposure` walks
 `Application ← Scenario → Chain → Technique ← Actor` to list named actors with
-a graph path into each modeled application.
+a graph path into each modeled application; `threat_actor_paths` does the same
+starting from STRIDE threats (via heuristic `MAPS_TO` edges).
+
+The graph also feeds generation: the scenario CTI stage calls `cti_briefing`
+(`src/maintain/neo4j_graph.py`) to inject actors, advisories, and
+actively-exploited CVEs linked to the selected chain's techniques into the
+prompt. Neo4j unreachable or empty → the stage silently falls back to the
+file-pack keyword match, so air-gapped runs are unaffected.
 
 Source of truth remains `output/workspace/attack_templates.json`. Neo4j is a
 **full-rebuild projection** on each sync (detach-delete + recreate).
