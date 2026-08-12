@@ -230,6 +230,29 @@ def feedback_rows(paths: PathConfig) -> list[dict[str, Any]]:
     return rows
 
 
+def qa_suspect_techniques(paths: PathConfig, *, limit: int = 15) -> list[dict[str, Any]]:
+    """Techniques mapped from threats in QA-rejected threat models.
+
+    File-based twin of the ``qa_rejected_techniques`` canned query, so the
+    forge cards can consume the feedback loop offline: reports operators
+    rejected flag the heuristic threat→technique mappings behind them as
+    suspect.
+    """
+    failed = {row["artifact_id"] for row in feedback_rows(paths) if not row["passed"]}
+    counts: dict[str, int] = {}
+    for model in threat_model_rows(paths):
+        if model["artifact_id"] not in failed:
+            continue
+        for threat in model["threats"]:
+            for tid in threat["techniques"]:
+                counts[tid] = counts.get(tid, 0) + 1
+    names = technique_names(paths)
+    ranked = sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:limit]
+    return [
+        {"tid": tid, "name": names.get(tid, ""), "rejected_threats": count} for tid, count in ranked
+    ]
+
+
 def sync_workspace_to_neo4j(session, paths: PathConfig) -> dict[str, int]:
     """Write the workspace/artifact projection into an open session."""
     apps = application_rows(paths)

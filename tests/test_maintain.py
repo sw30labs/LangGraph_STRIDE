@@ -313,7 +313,7 @@ def _workspace_fixture(paths: PathConfig) -> None:
                 "Spoofing": [
                     {
                         "threat_name": "Token Replay",
-                        "description": "replay of bearer tokens",
+                        "description": "replay of bearer tokens (T1078)",
                         "impact": "account takeover",
                         "mitigation": "short TTL",
                     }
@@ -488,3 +488,45 @@ def test_rebuild_guard_blocks_suspicious_shrink():
     assert rebuild_guard_reason(27, 20) is None
     assert rebuild_guard_reason(3, 1) is None  # below the guard floor
     assert rebuild_guard_reason(0, 3) is None
+
+
+def test_qa_suspect_techniques_from_failed_feedback(tmp_path):
+    from src.maintain.neo4j_workspace import qa_suspect_techniques
+
+    paths = _paths(tmp_path)
+    _workspace_fixture(paths)
+    # a failed final-QA verdict for the same threat-model artifact
+    (paths.output_dir / "feedback" / "final_feedback_AA123456_20260101000000.json").write_text(
+        json.dumps({"pass": False, "score": 3}),
+        encoding="utf-8",
+    )
+
+    rows = qa_suspect_techniques(paths)
+    tids = {row["tid"] for row in rows}
+    assert "T1078" in tids  # cited by the rejected model's threat
+    assert all(row["rejected_threats"] >= 1 for row in rows)
+
+
+def test_qa_suspect_techniques_empty_when_all_pass(tmp_path):
+    from src.maintain.neo4j_workspace import qa_suspect_techniques
+
+    paths = _paths(tmp_path)
+    _workspace_fixture(paths)  # fixture feedback is a pass
+    assert qa_suspect_techniques(paths) == []
+
+
+def test_draft_prompt_carries_qa_signal():
+    from src.maintain.novel import draft_prompt
+
+    prompt = draft_prompt(
+        mode="dark_matter",
+        graph={},
+        fingerprints=[],
+        steer="",
+        sparks=[],
+        extra_context={"qa_suspect_techniques": [{"tid": "T1078", "rejected_threats": 2}]},
+        critique=None,
+        max_jaccard=0.45,
+    )
+    assert "QA feedback signal" in prompt
+    assert "T1078" in prompt

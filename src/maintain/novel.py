@@ -241,6 +241,11 @@ rare_techniques: {json.dumps(graph.get("rare_techniques", [])[:12], indent=2)}
 weak_tactics: {json.dumps(graph.get("weak_tactics", []), indent=2)}
 common_techniques_to_avoid_overusing: {common}
 
+QA feedback signal: these techniques sit behind threat-model reports that
+failed QA — their threat→technique mappings are operator-rejected. If you use
+one, make that step's rationale explicit and specific.
+qa_suspect_techniques: {json.dumps(extra_context.get("qa_suspect_techniques") or [])}
+
 Existing library fingerprints (do not remix these sets):
 {json.dumps(fingerprints, indent=2)[:10000]}
 
@@ -320,6 +325,10 @@ def forge_novel_chain(
 
     _stage("mitre_hints")
     extra["mitre_sample"] = _mitre_hints(paths, limit=30)
+
+    from src.maintain.neo4j_workspace import qa_suspect_techniques
+
+    extra["qa_suspect_techniques"] = qa_suspect_techniques(paths)
 
     sparks: list[dict[str, str]] = []
     if web_spark:
