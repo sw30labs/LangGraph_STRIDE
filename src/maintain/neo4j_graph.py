@@ -208,11 +208,24 @@ def _cooccur_edges(
     return [(a, b, len(cids), cids) for (a, b), cids in pair_chains.items()]
 
 
+def rebuild_guard_reason(current: int, incoming: int) -> str | None:
+    """Refuse suspicious full rebuilds: the projection is detach-deleted before
+    recreation, so a sync pointed at the wrong workspace would wipe a rich
+    graph down to demo data. Force overrides."""
+    if current >= 10 and incoming < current // 2:
+        return (
+            f"refusing to replace {current} chains with {incoming} — "
+            "check the workspace paths or pass force=True"
+        )
+    return None
+
+
 def sync_library_to_neo4j(
     config: AppConfig | Neo4jConfig,
     *,
     paths=None,
     similarity_threshold: float = 0.45,
+    force: bool = False,
 ) -> dict[str, Any]:
     """Full rebuild of the Neo4j projection from the workspace chain library."""
     if isinstance(config, AppConfig):
@@ -237,6 +250,10 @@ def sync_library_to_neo4j(
     try:
         with driver.session(database=neo.database) as session:
             ensure_schema(session)
+            row = session.run("MATCH (c:Chain) RETURN count(c) AS n").single()
+            reason = rebuild_guard_reason(int((row or {}).get("n") or 0), len(chains))
+            if reason and not force:
+                raise RuntimeError(reason)
             # Wipe projection nodes/rels (keep nothing foreign — this DB is ours).
             session.run("MATCH (n) DETACH DELETE n")
 

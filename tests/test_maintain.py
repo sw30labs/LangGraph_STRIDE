@@ -475,3 +475,16 @@ def test_kev_forge_card_and_prompt():
     )
     assert "KEV" in prompt
     assert "T1486" in prompt  # gap seeds reach the drafting prompt
+
+
+def test_rebuild_guard_blocks_suspicious_shrink():
+    from src.maintain.neo4j_graph import rebuild_guard_reason
+
+    # wrong-path sync: rich graph would collapse to demo seeds
+    assert rebuild_guard_reason(27, 3) is not None
+    assert "force" in rebuild_guard_reason(27, 3)
+    # normal growth / small libraries / first sync pass through
+    assert rebuild_guard_reason(27, 27) is None
+    assert rebuild_guard_reason(27, 20) is None
+    assert rebuild_guard_reason(3, 1) is None  # below the guard floor
+    assert rebuild_guard_reason(0, 3) is None

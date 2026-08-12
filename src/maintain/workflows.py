@@ -43,11 +43,11 @@ def run_technique_galaxy(config: AppConfig) -> dict[str, Any]:
     }
 
 
-def run_neo4j_sync(config: AppConfig) -> dict[str, Any]:
+def run_neo4j_sync(config: AppConfig, *, force: bool = False) -> dict[str, Any]:
     _stage("neo4j_sync")
     # Ensure analytics sqlite exists even if Neo4j is down.
     build_chain_graph(config.paths)
-    result = sync_library_to_neo4j(config)
+    result = sync_library_to_neo4j(config, force=force)
     result["status"] = neo4j_status(config.neo4j)
     return result
 

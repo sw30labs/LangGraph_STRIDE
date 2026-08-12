@@ -734,10 +734,14 @@ def maintain_neo4j_status() -> None:
 def maintain_neo4j_sync(
     output_dir: Annotated[Path | None, typer.Option("--output-dir")] = None,
     data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="Override the shrink guard on full rebuilds."),
+    ] = False,
 ) -> None:
     """Full rebuild of the Neo4j projection from the chain library."""
     paths = _paths(output_dir=output_dir, data_dir=data_dir)
-    result = run_neo4j_sync(AppConfig(paths=paths))
+    result = run_neo4j_sync(AppConfig(paths=paths), force=force)
     typer.echo(json.dumps(result, indent=2))
 
 
