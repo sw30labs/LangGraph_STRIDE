@@ -279,6 +279,20 @@ def test_intel_payload_actor_and_advisory_rows(tmp_path):
     assert advisories[0]["nexus"] == ["russia-nexus"]
     assert advisories[0]["techniques"] == ["T1059"]
 
+    # geopolitical research packs project into the same advisory layer
+    upsert_cti_pack(
+        paths,
+        {
+            "id": "securelist-test-bear-campaign",
+            "title": "Securelist: Test Bear campaign",
+            "actors": ["russia-nexus"],
+            "techniques": ["T1190"],
+            "source": "securelist",
+        },
+    )
+    advisories = advisory_rows(paths)
+    assert {row["id"] for row in advisories} == {"cisa-adv-test", "securelist-test-bear-campaign"}
+
 
 def test_canned_queries_cover_intel_layers():
     from src.maintain.neo4j_graph import CANNED_QUERIES

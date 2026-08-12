@@ -139,11 +139,18 @@ def actor_rows(paths: PathConfig) -> list[dict[str, Any]]:
     return sorted(rows, key=lambda item: item["id"])
 
 
+ADVISORY_SOURCES = {"cisa-advisory", "msft-security", "securelist"}
+
+
 def advisory_rows(paths: PathConfig) -> list[dict[str, Any]]:
-    """CISA advisory packs → advisory rows with nexus attribution labels."""
+    """Advisory/research packs → advisory rows with nexus attribution labels.
+
+    Covers CISA joint advisories plus the geopolitical research feeds
+    (Securelist, Microsoft Security) — both carry actor/nexus hints.
+    """
     rows = []
     for pack in list_cti_packs(paths):
-        if pack.get("source") != "cisa-advisory":
+        if pack.get("source") not in ADVISORY_SOURCES:
             continue
         rows.append(
             {

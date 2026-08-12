@@ -30,6 +30,11 @@ from src.intel.cti import (
     update_cisa_kev_online,
     upsert_cti_pack,
 )
+from src.intel.geointel import (
+    feed_keys,
+    import_geointel_file,
+    update_geointel_online,
+)
 from src.intel.manifest import intel_status
 from src.intel.mitre import import_mitre_file, search_techniques, update_mitre_online
 from src.intel.nvd import import_nvd_file, query_cves, seed_demo_cves, update_nvd_online
@@ -646,6 +651,37 @@ def intel_update_cti_advisories(
     typer.echo(
         json.dumps(
             update_cisa_advisories_online(_paths(output_dir=output_dir), limit=limit),
+            indent=2,
+        )
+    )
+
+
+@intel_app.command("ingest-geointel")
+def intel_ingest_geointel(
+    feed: Annotated[str, typer.Argument(help="Feed key: " + ", ".join(feed_keys()))],
+    path: Annotated[Path, typer.Argument(help="Saved RSS/XML feed file")],
+    limit: Annotated[int, typer.Option("--limit", min=1, max=200)] = 25,
+    output_dir: Annotated[Path | None, typer.Option("--output-dir")] = None,
+) -> None:
+    """Offline ingest of a saved geopolitical research feed into CTI packs."""
+    typer.echo(
+        json.dumps(
+            import_geointel_file(_paths(output_dir=output_dir), feed, path, limit=limit),
+            indent=2,
+        )
+    )
+
+
+@intel_app.command("update-geointel")
+def intel_update_geointel(
+    feed: Annotated[str, typer.Option("--feed", help="Feed key or 'all'")] = "all",
+    limit: Annotated[int, typer.Option("--limit", min=1, max=200)] = 25,
+    output_dir: Annotated[Path | None, typer.Option("--output-dir")] = None,
+) -> None:
+    """Online pull of geopolitical research feeds → CTI packs (public RSS)."""
+    typer.echo(
+        json.dumps(
+            update_geointel_online(_paths(output_dir=output_dir), feed, limit=limit),
             indent=2,
         )
     )

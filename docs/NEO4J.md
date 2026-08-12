@@ -66,7 +66,9 @@ Also set the same value in `.env` as `STRIDE_NEO4J_PASSWORD` so the app can conn
 
 Intel layers come from `src/maintain/neo4j_intel.py`: the NVD sqlite store and
 cached KEV catalog merge onto shared `CVE` nodes, MITRE group packs become
-`Actor` nodes with real "uses" edges, advisory packs become `Advisory` nodes.
+`Actor` nodes with real "uses" edges, advisory packs (CISA joint advisories
+plus the geopolitical research feeds — Securelist, Microsoft Security) become
+`Advisory` nodes with nexus attribution.
 Edge `confidence` separates gold data (MITRE uses) from mined hints — filter on
 it in analytics. Technique nodes are shared: intel edges MERGE onto the same
 `Technique {key}` nodes the chain library uses (intel-only techniques get

@@ -314,3 +314,93 @@ def test_scenario_cti_survives_graph_outage(tmp_path, monkeypatch):
         model, "API Exposure Attack [New]", min_cvss=9.0
     )
     assert path.is_file()  # file-pack baseline still produces a report
+
+
+def test_geointel_offline_import_filters_unattributed(tmp_path):
+    from src.intel.geointel import feed_keys, import_geointel_file
+
+    cfg = paths(tmp_path)
+    assert feed_keys() == ["msft-security", "securelist"]
+    result = import_geointel_file(cfg, "securelist", FIXTURES / "geointel_sample.xml")
+    assert result["written"] == 2  # product roundup carries no attribution
+    packs = {pack["id"]: pack for pack in list_cti_packs(cfg)}
+    lazarus = packs["securelist-lazarus-group-targets-defense-contractors-with-new-loader"]
+    assert lazarus["source"] == "securelist"
+    assert lazarus["actors"] == ["dprk-nexus"]
+    volt = packs["securelist-volt-typhoon-living-off-the-land-campaign-hits-critical-infr"]
+    assert volt["actors"] == ["prc-nexus"]
+    assert "T1068" in volt["techniques"]  # privilege-escalation hint
+
+
+def test_geointel_online_all_feeds_mock_transport(tmp_path):
+    from src.intel.geointel import FEEDS, update_geointel_online
+
+    cfg = paths(tmp_path)
+    xml_text = (FIXTURES / "geointel_sample.xml").read_text()
+    page_html = """
+    <html><head><script>var x = 1;</script></head><body>
+    <p>Full article: the actors used T1059 and T1203 after the initial access.</p>
+    </body></html>
+    """
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if url in {feed["url"] for feed in FEEDS.values()}:
+            return httpx.Response(200, text=xml_text)
+        return httpx.Response(200, text=page_html)
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    result = update_geointel_online(cfg, "all", client=client, limit=10)
+    assert len(result["feeds"]) == 2
+    assert result["written"] == 4  # 2 attributed items per feed
+    packs = list_cti_packs(cfg)
+    sources = {pack["source"] for pack in packs}
+    assert sources == {"securelist", "msft-security"}
+    lazarus = next(p for p in packs if "lazarus" in p["id"] and p["source"] == "securelist")
+    # Body-only signals: explicit ATT&CK IDs mined from the article page.
+    assert "T1059" in lazarus["techniques"]
+    assert "T1203" in lazarus["techniques"]
+    assert "Article body (excerpt)" in lazarus["notes"]
+
+
+def test_geointel_replaces_only_its_own_source(tmp_path):
+    from src.intel.geointel import import_geointel_file
+
+    cfg = paths(tmp_path)
+    import_geointel_file(cfg, "securelist", FIXTURES / "geointel_sample.xml")
+    import_geointel_file(cfg, "msft-security", FIXTURES / "geointel_sample.xml")
+    assert len(list_cti_packs(cfg)) == 4
+    # re-importing one feed replaces its packs but leaves the other feed alone
+    import_geointel_file(cfg, "securelist", FIXTURES / "geointel_sample.xml")
+    packs = list_cti_packs(cfg)
+    assert len(packs) == 4
+    assert {pack["source"] for pack in packs} == {"securelist", "msft-security"}
+
+
+def test_geointel_partial_failure_keeps_other_feeds(tmp_path):
+    import pytest
+
+    from src.intel.geointel import FEEDS, update_geointel_online
+
+    cfg = paths(tmp_path)
+    xml_text = (FIXTURES / "geointel_sample.xml").read_text()
+    bad_url = FEEDS["msft-security"]["url"]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if str(request.url) == bad_url:
+            return httpx.Response(403, text="blocked")
+        if str(request.url) == FEEDS["securelist"]["url"]:
+            return httpx.Response(200, text=xml_text)
+        return httpx.Response(200, text="<html><body><p>article</p></body></html>")
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    result = update_geointel_online(cfg, "all", client=client, limit=10)
+    assert [row["feed"] for row in result["feeds"]] == ["securelist"]
+    assert "msft-security" in result["errors"]
+
+    def always_fail(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, text="down")
+
+    failing = httpx.Client(transport=httpx.MockTransport(always_fail))
+    with pytest.raises(RuntimeError, match="all feeds"):
+        update_geointel_online(cfg, "all", client=failing, limit=10)

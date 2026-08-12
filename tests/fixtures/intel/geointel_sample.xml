@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Sample threat research feed</title>
+    <link>https://feeds.test/</link>
+    <description>Fixture feed for geointel ingest tests</description>
+    <item>
+      <title>Lazarus Group targets defense contractors with new loader</title>
+      <link>https://feeds.test/lazarus-loader</link>
+      <pubDate>Tue, 11 Aug 2026 10:00:00 GMT</pubDate>
+      <description>DPRK-nexus Lazarus deployed a loader after a drive-by compromise of a vendor site.</description>
+    </item>
+    <item>
+      <title>Volt Typhoon living-off-the-land campaign hits critical infrastructure</title>
+      <link>https://feeds.test/volt-typhoon-lotl</link>
+      <pubDate>Mon, 10 Aug 2026 09:00:00 GMT</pubDate>
+      <description>Chinese state-sponsored actor abused valid accounts for privilege escalation.</description>
+    </item>
+    <item>
+      <title>Our quarterly product roundup</title>
+      <link>https://feeds.test/product-roundup</link>
+      <pubDate>Sun, 09 Aug 2026 09:00:00 GMT</pubDate>
+      <description>Marketing news with no threat content at all.</description>
+    </item>
+  </channel>
+</rss>

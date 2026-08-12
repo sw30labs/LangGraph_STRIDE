@@ -15,6 +15,7 @@ from src.intel.cti import (
     matching_cti_packs,
     upsert_cti_pack,
 )
+from src.intel.geointel import import_geointel_file, update_geointel_online
 from src.intel.manifest import intel_status, load_manifest, save_manifest
 from src.intel.mitre import (
     import_mitre_file,
@@ -34,6 +35,7 @@ __all__ = [
     "default_cve_db_path",
     "delete_cti_pack",
     "import_cisa_advisories_file",
+    "import_geointel_file",
     "import_mitre_file",
     "import_nvd_file",
     "ingest_cti_pack",
@@ -47,6 +49,7 @@ __all__ = [
     "seed_demo_cves",
     "technique_count",
     "update_cisa_advisories_online",
+    "update_geointel_online",
     "update_mitre_online",
     "update_nvd_online",
     "upsert_cti_pack",
