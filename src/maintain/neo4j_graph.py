@@ -55,6 +55,13 @@ CONSTRAINTS = (
     "CREATE CONSTRAINT actor_id IF NOT EXISTS FOR (a:Actor) REQUIRE a.id IS UNIQUE",
     "CREATE CONSTRAINT advisory_id IF NOT EXISTS FOR (d:Advisory) REQUIRE d.id IS UNIQUE",
     "CREATE CONSTRAINT nexus_name IF NOT EXISTS FOR (n:Nexus) REQUIRE n.name IS UNIQUE",
+    "CREATE CONSTRAINT application_id IF NOT EXISTS FOR (a:Application) REQUIRE a.aa_id IS UNIQUE",
+    (
+        "CREATE CONSTRAINT threat_model_id IF NOT EXISTS FOR (m:ThreatModel) "
+        "REQUIRE m.artifact_id IS UNIQUE"
+    ),
+    "CREATE CONSTRAINT scenario_id IF NOT EXISTS FOR (s:Scenario) REQUIRE s.artifact_id IS UNIQUE",
+    "CREATE CONSTRAINT threat_key IF NOT EXISTS FOR (t:Threat) REQUIRE t.key IS UNIQUE",
 )
 
 INDEXES = (
@@ -107,7 +114,16 @@ def neo4j_status(config: Neo4jConfig | None = None) -> dict[str, Any]:
                 OPTIONAL MATCH (a:Actor)
                 WITH chains, techniques, uses, co_occurs, cves, count(a) AS actors
                 OPTIONAL MATCH (d:Advisory)
-                RETURN chains, techniques, uses, co_occurs, cves, actors, count(d) AS advisories
+                WITH chains, techniques, uses, co_occurs, cves, actors, count(d) AS advisories
+                OPTIONAL MATCH (ap:Application)
+                WITH chains, techniques, uses, co_occurs, cves, actors, advisories,
+                     count(ap) AS applications
+                OPTIONAL MATCH (m:ThreatModel)
+                WITH chains, techniques, uses, co_occurs, cves, actors, advisories,
+                     applications, count(m) AS models
+                OPTIONAL MATCH (s:Scenario)
+                RETURN chains, techniques, uses, co_occurs, cves, actors, advisories,
+                       applications, models, count(s) AS scenarios
                 """
             ).single()
             meta = session.run(
@@ -125,6 +141,9 @@ def neo4j_status(config: Neo4jConfig | None = None) -> dict[str, Any]:
                 "cves": int(counts["cves"] or 0),
                 "actors": int(counts["actors"] or 0),
                 "advisories": int(counts["advisories"] or 0),
+                "applications": int(counts["applications"] or 0),
+                "threat_models": int(counts["models"] or 0),
+                "scenarios": int(counts["scenarios"] or 0),
             }
         if meta:
             base["synced_at"] = meta.get("synced_at")
@@ -363,8 +382,10 @@ def sync_library_to_neo4j(
             # Intel projection (CVEs, CWEs, actors, advisories) — after the
             # chain layers so intel edges MERGE onto chain technique nodes.
             from src.maintain.neo4j_intel import sync_intel_to_neo4j
+            from src.maintain.neo4j_workspace import sync_workspace_to_neo4j
 
             intel_counts = sync_intel_to_neo4j(session, path_cfg)
+            workspace_counts = sync_workspace_to_neo4j(session, path_cfg)
 
             session.run(
                 """
@@ -377,7 +398,10 @@ def sync_library_to_neo4j(
                     similar_count: $similar_count,
                     cve_count: $cve_count,
                     actor_count: $actor_count,
-                    advisory_count: $advisory_count
+                    advisory_count: $advisory_count,
+                    application_count: $application_count,
+                    threat_model_count: $threat_model_count,
+                    scenario_count: $scenario_count
                 })
                 """,
                 synced_at=synced_at,
@@ -388,6 +412,9 @@ def sync_library_to_neo4j(
                 cve_count=intel_counts["cves"],
                 actor_count=intel_counts["actors"],
                 advisory_count=intel_counts["advisories"],
+                application_count=workspace_counts["applications"],
+                threat_model_count=workspace_counts["threat_models"],
+                scenario_count=workspace_counts["scenarios"],
             )
     finally:
         driver.close()
@@ -404,6 +431,7 @@ def sync_library_to_neo4j(
             "co_occurs": len(cooccurs),
             "similar": len(similar),
             **intel_counts,
+            **workspace_counts,
         },
         "detail": "ok",
     }
@@ -545,6 +573,20 @@ CANNED_QUERIES: dict[str, dict[str, str]] = {
             "OPTIONAL MATCH (t)<-[:USES]-(other:Chain) WHERE other.id <> c.id "
             "RETURN t.key AS technique, t.name AS name, "
             "collect(DISTINCT other.name)[..8] AS also_in ORDER BY t.key"
+        ),
+    },
+    "actor_exposure": {
+        "title": "Actor reach to applications",
+        "cypher": (
+            # named actors with a graph path into a modeled application:
+            # app ← scenario → chain → technique ← actor
+            "MATCH (app:Application)<-[:FOR_APP]-(s:Scenario)-[:SELECTED_CHAIN]->(ch:Chain) "
+            "MATCH (ch)-[:USES]->(t:Technique)<-[u:USES]-(a:Actor) "
+            "WHERE u.confidence = 'mitre-attack' "
+            "RETURN app.aa_id AS app, app.name AS application, a.name AS actor, "
+            "count(DISTINCT t) AS shared_techniques, "
+            "collect(DISTINCT ch.name)[..5] AS via_chains "
+            "ORDER BY shared_techniques DESC, actor LIMIT 25"
         ),
     },
 }

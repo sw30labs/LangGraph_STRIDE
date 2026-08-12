@@ -41,6 +41,10 @@ Also set the same value in `.env` as `STRIDE_NEO4J_PASSWORD` so the app can conn
 (:Actor {id, name, aliases, notes})              # MITRE ATT&CK groups
 (:Advisory {id, title, nexus, notes})            # CISA joint advisories
 (:Nexus {name})                                  # attribution labels (russia-nexus, …)
+(:Application {aa_id, name, platform, externally_facing, …})
+(:ThreatModel {artifact_id, path, aa_id→, dread_json, stride_pass, …})
+(:Scenario {artifact_id, path, title, template, …})
+(:Threat {key, name})                            # STRIDE threats (deduped by name)
 
 (Chain)-[:USES {step, tactic, raw}]->(Technique)
 (Technique)-[:IN_TACTIC]->(Tactic)
@@ -52,6 +56,11 @@ Also set the same value in `.env` as `STRIDE_NEO4J_PASSWORD` so the app can conn
 (Actor)-[:USES {confidence:'mitre-attack'}]->(Technique)
 (Advisory)-[:MENTIONS {confidence:'advisory-mined'}]->(Technique)
 (Advisory)-[:ATTRIBUTES_ACTIVITY_TO]->(Nexus)
+(ThreatModel)-[:FOR_APP]->(Application)
+(ThreatModel)-[:RAISED {category, description, impact, mitigation}]->(Threat)
+(Scenario)-[:FOR_APP]->(Application)
+(Scenario)-[:DERIVED_FROM]->(ThreatModel)
+(Scenario)-[:SELECTED_CHAIN]->(Chain)
 ```
 
 Intel layers come from `src/maintain/neo4j_intel.py`: the NVD sqlite store and
@@ -66,6 +75,13 @@ Canned queries beyond the chain analytics: `kev_gaps` (actively-exploited
 techniques no chain simulates) and `actor_coverage` (share of each actor's
 tradecraft the library covers). Both count a chain's sub-technique as covering
 its parent.
+
+Workspace layers come from `src/maintain/neo4j_workspace.py`: CMDB
+applications, threat models (with STRIDE threat nodes and QA scores from
+`output/feedback/`), and scenarios with `DERIVED_FROM`/`SELECTED_CHAIN`
+lineage. The flagship canned query `actor_exposure` walks
+`Application ← Scenario → Chain → Technique ← Actor` to list named actors with
+a graph path into each modeled application.
 
 Source of truth remains `output/workspace/attack_templates.json`. Neo4j is a
 **full-rebuild projection** on each sync (detach-delete + recreate).

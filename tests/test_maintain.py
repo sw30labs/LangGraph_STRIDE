@@ -288,3 +288,109 @@ def test_canned_queries_cover_intel_layers():
     assert "actor_coverage" in CANNED_QUERIES
     # intel-only techniques (frequency 0) must not flood chain dark matter
     assert "frequency >= 1" in CANNED_QUERIES["dark_matter"]["cypher"]
+
+
+def _workspace_fixture(paths: PathConfig) -> None:
+    (paths.data_dir / "cmdb.json").write_text(
+        json.dumps(
+            [
+                {
+                    "AA ID": "AA123456",
+                    "Application Name": "Payments",
+                    "Externally facing": "Yes - Internet",
+                    "Platform": ["Linux Platform"],
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    stride_dir = paths.output_dir / "stride"
+    stride_dir.mkdir(parents=True)
+    (stride_dir / "security_assessment_AA123456_20260101000000.json").write_text(
+        json.dumps(
+            {
+                "system_metadata": {"aa_id": "AA123456"},
+                "Spoofing": [
+                    {
+                        "threat_name": "Token Replay",
+                        "description": "replay of bearer tokens",
+                        "impact": "account takeover",
+                        "mitigation": "short TTL",
+                    }
+                ],
+                "dread_assessment": [
+                    {
+                        "Threat Type": "Spoofing",
+                        "Scenario": "token replay against the API",
+                        "Damage Potential": "8",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    scen_dir = paths.output_dir / "scenarios"
+    scen_dir.mkdir(parents=True)
+    (scen_dir / "scenario_AA123456_20260101000001.json").write_text(
+        json.dumps(
+            {
+                "SWC_ID": "AA123456",
+                "Attack_Template": "Alpha Phish",
+                "Complete": "True",
+                "_meta": {
+                    "artifact_id": "sc_AA123456_20260101000001",
+                    "aa_id": "AA123456",
+                    "attack_template": "Alpha Phish",
+                    "source_threat_model_path": (
+                        "output/stride/security_assessment_AA123456_20260101000000.json"
+                    ),
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    fb_dir = paths.output_dir / "feedback"
+    fb_dir.mkdir(parents=True)
+    (fb_dir / "stride_feedback_AA123456_20260101000000.json").write_text(
+        json.dumps({"pass": True, "score": 8}),
+        encoding="utf-8",
+    )
+
+
+def test_workspace_projection_rows(tmp_path):
+    from src.maintain.neo4j_workspace import (
+        application_rows,
+        feedback_rows,
+        scenario_rows,
+        threat_model_rows,
+    )
+
+    paths = _paths(tmp_path)
+    _workspace_fixture(paths)
+
+    apps = application_rows(paths)
+    assert apps[0]["aa_id"] == "AA123456"
+    assert apps[0]["name"] == "Payments"  # legacy CMDB keys normalized
+    assert apps[0]["platform"] == ["Linux Platform"]
+
+    models = threat_model_rows(paths)
+    assert models[0]["artifact_id"] == "tm_AA123456_20260101000000"  # filename fallback
+    assert models[0]["aa_id"] == "AA123456"
+    assert models[0]["threats"][0]["key"] == "token-replay"
+    assert models[0]["threats"][0]["category"] == "Spoofing"
+    assert models[0]["dread"][0]["threat_type"] == "Spoofing"
+
+    scenarios = scenario_rows(paths)
+    assert scenarios[0]["artifact_id"] == "sc_AA123456_20260101000001"
+    assert scenarios[0]["chain_id"]  # "Alpha Phish" resolved to a chain id
+    assert scenarios[0]["source_threat_model_path"].endswith("000000.json")
+
+    feedback = feedback_rows(paths)
+    assert feedback == [
+        {
+            "stage": "stride",
+            "artifact_id": "tm_AA123456_20260101000000",
+            "passed": True,
+            "score": 8,
+        }
+    ]
