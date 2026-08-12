@@ -425,3 +425,53 @@ def test_workspace_projection_rows(tmp_path):
             "score": 8,
         }
     ]
+
+
+def test_canned_queries_p2_signals():
+    from src.maintain.neo4j_graph import CANNED_QUERIES
+
+    assert "detection_priorities" in CANNED_QUERIES
+    assert "mitre-attack" in CANNED_QUERIES["detection_priorities"]["cypher"]
+    assert "qa_rejected_techniques" in CANNED_QUERIES
+    assert "stride_pass" in CANNED_QUERIES["qa_rejected_techniques"]["cypher"]
+    assert "kev_temporal" in CANNED_QUERIES
+    assert "kev_date_added" in CANNED_QUERIES["kev_temporal"]["cypher"]
+
+
+def test_kev_gap_rows_exclude_covered_techniques(tmp_path):
+    from src.intel.cti import kev_cache_path
+    from src.maintain.neo4j_intel import kev_gap_rows
+
+    paths = _paths(tmp_path)
+    seed_attack_templates(paths, force=True)
+    cache = kev_cache_path(paths)
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    cache.write_text((FIXTURES / "cisa_kev_sample.json").read_text(), encoding="utf-8")
+
+    gaps = kev_gap_rows(paths)
+    tids = {row["tid"] for row in gaps}
+    assert "T1486" in tids  # ransomware-derived, no seeded chain covers it
+    assert "T1190" in tids
+    # T1059 is KEV-mapped (SQL-injection hint) but the seeded PowerShell
+    # sub-technique T1059.001 covers the parent — not a gap
+    assert "T1059" not in tids
+    assert all(row["kev_cves"] >= 1 for row in gaps)
+    assert gaps[0]["kev_cves"] >= gaps[-1]["kev_cves"]  # ranked by KEV pressure
+
+
+def test_kev_forge_card_and_prompt():
+    from src.maintain.novel import draft_prompt
+
+    assert get_card("kev_forge")["llm"] is True
+    prompt = draft_prompt(
+        mode="kev_forge",
+        graph={},
+        fingerprints=[],
+        steer="",
+        sparks=[],
+        extra_context={"kev_gaps": [{"tid": "T1486", "name": "Data Encrypted", "kev_cves": 3}]},
+        critique=None,
+        max_jaccard=0.45,
+    )
+    assert "KEV" in prompt
+    assert "T1486" in prompt  # gap seeds reach the drafting prompt

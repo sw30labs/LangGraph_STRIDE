@@ -20,6 +20,8 @@ from src.config import PathConfig
 from src.intel.cti import cwe_list, kev_cache_path, list_cti_packs, techniques_from_kev_row
 from src.intel.mitre import load_techniques
 from src.intel.nvd import default_cve_db_path
+from src.maintain.graph import technique_keys_from_chain
+from src.workspace import load_chains
 
 TECHNIQUE_ID = re.compile(r"^T\d{4}(?:\.\d{3})?$")
 
@@ -157,6 +159,31 @@ def advisory_rows(paths: PathConfig) -> list[dict[str, Any]]:
             }
         )
     return sorted(rows, key=lambda item: item["id"])
+
+
+def kev_gap_rows(paths: PathConfig, *, limit: int = 12) -> list[dict[str, Any]]:
+    """Actively-exploited techniques the chain library does not simulate.
+
+    File-based twin of the ``kev_gaps`` canned query (offline-first: the
+    forge cards run on air-gapped boxes without Neo4j). A chain's
+    sub-technique counts as covering its parent, matching the Cypher.
+    """
+    covered: set[str] = set()
+    for chain in load_chains(paths):
+        for key in technique_keys_from_chain(chain):
+            covered.add(key)
+            if "." in key:
+                covered.add(key.split(".", 1)[0])
+    counts: dict[str, int] = {}
+    for row in cve_rows(paths):
+        if not row["in_kev"]:
+            continue
+        for tid in row["techniques"]:
+            if tid not in covered:
+                counts[tid] = counts.get(tid, 0) + 1
+    names = technique_names(paths)
+    ranked = sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:limit]
+    return [{"tid": tid, "name": names.get(tid, ""), "kev_cves": count} for tid, count in ranked]
 
 
 def build_intel_payload(paths: PathConfig) -> dict[str, Any]:

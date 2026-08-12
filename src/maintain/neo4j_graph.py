@@ -602,6 +602,51 @@ CANNED_QUERIES: dict[str, dict[str, str]] = {
             "ORDER BY shared_techniques DESC, threat LIMIT 25"
         ),
     },
+    "detection_priorities": {
+        "title": "Detection / simulation priorities",
+        "cypher": (
+            # hub score: real adversary demand (MITRE gold actors) + active
+            # exploitation (KEV) weighted up when no chain simulates the
+            # technique — the highest scores are where to build detections
+            # and forge chains first
+            "MATCH (t:Technique) "
+            "OPTIONAL MATCH (a:Actor)-[:USES {confidence:'mitre-attack'}]->(t) "
+            "WITH t, count(DISTINCT a) AS actors "
+            "OPTIONAL MATCH (c:CVE)-[:EXPLOITS_TECHNIQUE]->(t) WHERE c.in_kev "
+            "WITH t, actors, count(DISTINCT c) AS kev_cves, "
+            "EXISTS { (t)<-[:USES]-(:Chain) } "
+            "OR EXISTS { (sub:Technique)<-[:USES]-(:Chain) "
+            "WHERE sub.key STARTS WITH t.key + '.' } AS covered "
+            "WHERE actors > 0 OR kev_cves > 0 "
+            "RETURN t.key AS key, t.name AS name, actors, kev_cves, covered, "
+            "(2 * actors + kev_cves) * CASE WHEN covered THEN 1 ELSE 3 END AS priority "
+            "ORDER BY priority DESC, key LIMIT 25"
+        ),
+    },
+    "qa_rejected_techniques": {
+        "title": "Techniques behind QA-rejected reports",
+        "cypher": (
+            # feedback loop: techniques mapped from threats in threat models
+            # whose QA verdicts failed — suspect mappings to review, and
+            # technique areas where report quality keeps slipping
+            "MATCH (m:ThreatModel)-[:RAISED]->(th:Threat)-[:MAPS_TO]->(t:Technique) "
+            "WHERE m.stride_pass = false OR m.dread_pass = false OR m.final_pass = false "
+            "RETURN t.key AS key, t.name AS name, "
+            "count(DISTINCT th) AS threats, count(DISTINCT m) AS rejected_models "
+            "ORDER BY rejected_models DESC, threats DESC, key LIMIT 25"
+        ),
+    },
+    "kev_temporal": {
+        "title": "KEV additions over time",
+        "cypher": (
+            # monthly KEV intake with ransomware-known split — the threat
+            # tempo the chain library should keep pace with
+            "MATCH (c:CVE) WHERE c.in_kev AND c.kev_date_added <> '' "
+            "RETURN substring(c.kev_date_added, 0, 7) AS month, count(c) AS added, "
+            "sum(CASE WHEN c.kev_ransomware = 'Known' THEN 1 ELSE 0 END) AS ransomware "
+            "ORDER BY month"
+        ),
+    },
 }
 
 

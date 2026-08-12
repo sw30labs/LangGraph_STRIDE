@@ -75,6 +75,7 @@ def default_search_query(card_id: str, steer: str) -> str:
         "control_counter": "bypassing enterprise security controls living off the land",
         "app_adversary": "application-specific cyber attack techniques cloud SaaS",
         "blind_spot_fill": "underused MITRE ATT&CK tactics resource development collection",
+        "kev_forge": "CISA known exploited vulnerabilities attack chain techniques",
     }.get(card_id, "advanced persistent threat technique chain")
     steer = (steer or "").strip()
     return f"{base} {steer}".strip() if steer else base

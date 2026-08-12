@@ -75,7 +75,12 @@ it in analytics. Technique nodes are shared: intel edges MERGE onto the same
 Canned queries beyond the chain analytics: `kev_gaps` (actively-exploited
 techniques no chain simulates) and `actor_coverage` (share of each actor's
 tradecraft the library covers). Both count a chain's sub-technique as covering
-its parent.
+its parent. `detection_priorities` scores techniques by actor demand + KEV
+pressure, weighted up when no chain covers them — where to build detections
+and forge chains first. `kev_temporal` buckets KEV additions by month with a
+ransomware-known split. `qa_rejected_techniques` closes the QA feedback loop:
+techniques mapped from threats in threat models whose `stride`/`dread`/`final`
+verdicts failed.
 
 Workspace layers come from `src/maintain/neo4j_workspace.py`: CMDB
 applications, threat models (with STRIDE threat nodes and QA scores from

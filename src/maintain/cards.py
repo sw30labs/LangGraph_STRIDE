@@ -174,6 +174,40 @@ CARD_CATALOG: list[dict[str, Any]] = [
         ],
     },
     {
+        "id": "kev_forge",
+        "group": "forge",
+        "name": "KEV Gap Forge",
+        "short": "Arm actively-exploited gaps",
+        "btn": "ARM",
+        "llm": True,
+        "tag": "forge",
+        "desc": (
+            "Cross the CISA KEV catalog with the chain library: techniques that are "
+            "actively exploited in the wild but no chain simulates become forge seeds. "
+            "The card drafts a coherent intrusion anchored on those gaps, so the library "
+            "chases real adversary tempo instead of abstract novelty. Works offline from "
+            "the local KEV cache; the same gaps are queryable in Neo4j as kev_gaps. "
+            "Novelty gate + judge still apply."
+        ),
+        "fields": [
+            {
+                "k": "steer",
+                "label": "Steer (optional) — which gap or adversary story to arm first",
+                "ph": "e.g. prioritize credential-theft gaps for the VDI estate",
+                "type": "textarea",
+            },
+            {
+                "k": "max_jaccard",
+                "label": "Max Jaccard vs existing chains",
+                "type": "number",
+                "min": 0.15,
+                "max": 0.7,
+                "step": 0.05,
+                "value": 0.45,
+            },
+        ],
+    },
+    {
         "id": "clone_autopsy",
         "group": "audit",
         "name": "Clone Autopsy",

@@ -31,7 +31,7 @@ flowchart LR
 | `src/scenario.py` | Eight-node CVE/CTI/scenario selection, generation, approval, and persistence graph |
 | `src/gui.py` + `src/web/` | Local job console, report browser, logs, and safe static/JSON serving |
 | `src/workspace.py` | Workspace CMDB, attack-chain library, and Application → model → scenario navigator |
-| `src/maintain/` | Maintain studio: novel chain forge, clone autopsy, force-layout viz, Neo4j projection |
+| `src/maintain/` | Maintain studio: novel + KEV-gap chain forge, clone autopsy, force-layout viz, Neo4j projection |
 | Platform helpers | Checked DGX/vLLM and Apple/oMLX setup, launch, doctor, and smoke paths |
 
 ### Attack-template Neo4j (optional, dedicated)

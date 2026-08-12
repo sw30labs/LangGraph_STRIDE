@@ -212,6 +212,12 @@ def draft_prompt(
             "You MUST meaningfully cover the weak/missing tactics listed. The library is "
             "blind there. Do not pad with redundant initial-access clones."
         ),
+        "kev_forge": (
+            "Anchor the chain on the listed CISA KEV technique gaps — techniques "
+            "actively exploited in the wild that this library does not simulate yet. "
+            "Build the intrusion the way real operators chain those techniques; the "
+            "novelty gate still applies, so do not stop at a single-gap stencil."
+        ),
     }.get(mode, "Invent a novel attack chain.")
 
     common = json.dumps(graph.get("technique_frequency", [])[:10], indent=2)
@@ -304,6 +310,13 @@ def forge_novel_chain(
     if mode == "blind_spot_fill":
         extra["blind_tactics"] = graph.get("blind_tactics") or []
         extra["weak_tactics"] = graph.get("weak_tactics") or []
+    if mode == "kev_forge":
+        _stage("kev_gaps")
+        from src.maintain.neo4j_intel import kev_gap_rows
+
+        extra["kev_gaps"] = kev_gap_rows(paths)
+        if not extra["kev_gaps"]:
+            raise ValueError("No KEV gaps — ingest the CISA KEV catalog first")
 
     _stage("mitre_hints")
     extra["mitre_sample"] = _mitre_hints(paths, limit=30)
